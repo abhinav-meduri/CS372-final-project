@@ -240,7 +240,7 @@ a:hover{color:#fff}
             st.success("Cache cleared!")
     
     # Main content
-    tab1, tab2 = st.tabs(["Novelty Assessment", "Prior Art Search"])
+    tab1, tab2 = st.tabs(["Novelty Assessment & Prior Art Search", "Quick Search"])
     
     with tab1:
         st.markdown("### Enter Patent Information")

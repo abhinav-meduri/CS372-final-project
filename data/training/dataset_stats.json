@@ -1,0 +1,9 @@
+{
+  "total_citation_pairs": 28558,
+  "unique_positive_pairs": 28557,
+  "negative_pairs": 28557,
+  "train_size": 39979,
+  "val_size": 8567,
+  "test_size": 8568,
+  "positive_ratio": 0.5
+}

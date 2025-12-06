@@ -447,9 +447,9 @@ Citations are used as a **proxy** (approximation) for similarity, but the model 
 4. **Works on Non-Citation Pairs**: Model scores pairs without citations in production, suggesting it learned true similarity
 
 **Validation Evidence:**
-- High accuracy (91.82%) suggests learned meaningful patterns, not citation memorization
+- High accuracy (91.56%) suggests learned meaningful patterns, not citation memorization
 - Works on non-citation pairs in production
-- High ROC-AUC (97.21%) suggests learned meaningful similarity patterns
+- High ROC-AUC (97.14%) suggests learned meaningful similarity patterns
 
 ---
 
@@ -457,7 +457,7 @@ Citations are used as a **proxy** (approximation) for similarity, but the model 
 
 ### The Critical Question
 
-**When we say "91.82% accuracy," what are we comparing the model's predictions against?**
+**When we say "91.56% accuracy," what are we comparing the model's predictions against?**
 
 ### Ground Truth Definition
 
@@ -491,9 +491,9 @@ Where:
 
 ### What We're Actually Measuring
 
-**91.82% accuracy means:**
-- The model correctly predicts citation relationships 91.82% of the time
-- It does NOT mean the model correctly predicts semantic similarity 91.82% of the time
+**91.56% accuracy means:**
+- The model correctly predicts citation relationships 91.56% of the time
+- It does NOT mean the model correctly predicts semantic similarity 91.56% of the time
 
 ### The Proxy Problem
 
@@ -525,7 +525,7 @@ Where:
    - If it only learned citations, it would fail here
    - But it works, suggesting it learned true similarity
 
-4. **High ROC-AUC (97.21%)**
+4. **High ROC-AUC (97.14%)**
    - Measures ranking quality, not just binary accuracy
    - Suggests model learned meaningful similarity patterns
 
@@ -637,9 +637,9 @@ We conducted ablation studies to understand the contribution of different featur
 - MLP (128-64-32): 91.76% accuracy
 
 **PyTorch Neural Network:**
-- Architecture: [256, 128, 64, 32] with residual connections
-- Accuracy: 91.82% (best performance)
-- ROC-AUC: 97.21% (highest of all models)
+- Architecture: [128, 64, 32] with residual connections
+- Accuracy: 91.56% (test set, best performance)
+- ROC-AUC: 97.14% (test set, highest of all models)
 
 **Key Findings:**
 - Deeper networks provide marginal improvements
@@ -665,8 +665,8 @@ We conducted ablation studies to understand the contribution of different featur
 
 ### Performance
 
-- **Accuracy**: 91.82% (on test set)
-- **ROC-AUC**: 97.21% (highest of all models)
+- **Accuracy**: 91.56% (on test set)
+- **ROC-AUC**: 97.14% (on test set, highest of all models)
 - **Baseline comparison**: +42.04% vs random, +16.46% vs title Jaccard heuristic
 
 ### Key Insights

@@ -230,9 +230,8 @@ class PyTorchPatentClassifier:
             weight_decay=self.weight_decay
         )
         
-        # Learning rate scheduler
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=5, verbose=True
+            optimizer, mode='min', factor=0.5, patience=5
         )
         
         # Create dataloaders
@@ -254,6 +253,7 @@ class PyTorchPatentClassifier:
             # Training phase
             self.model.train()
             train_loss = 0.0
+            num_batches = 0
             
             for batch_X, batch_y in train_loader:
                 batch_X = batch_X.to(self.device)
@@ -270,17 +270,15 @@ class PyTorchPatentClassifier:
                 outputs = self.model(batch_X)
                 loss = criterion(outputs, batch_y)
                 loss.backward()
-                
-                # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 
                 optimizer.step()
                 train_loss += loss.item()
+                num_batches += 1
             
-            avg_train_loss = train_loss / len(train_loader)
+            avg_train_loss = train_loss / num_batches if num_batches > 0 else 0.0
             self.training_history["train_loss"].append(avg_train_loss)
             
-            # Validation phase
             if val_loader is not None:
                 self.model.eval()
                 val_loss = 0.0
@@ -308,10 +306,8 @@ class PyTorchPatentClassifier:
                 self.training_history["val_loss"].append(avg_val_loss)
                 self.training_history["val_acc"].append(val_acc)
                 
-                # Learning rate scheduling
                 scheduler.step(avg_val_loss)
                 
-                # Early stopping
                 if avg_val_loss < best_val_loss:
                     best_val_loss = avg_val_loss
                     patience_counter = 0
@@ -326,6 +322,10 @@ class PyTorchPatentClassifier:
                         f"Val Loss: {avg_val_loss:.4f}, "
                         f"Val Acc: {val_acc:.4f}"
                     )
+                
+                if patience_counter >= self.patience:
+                    logger.info(f"Early stopping at epoch {epoch+1}")
+                    break
                 
                 if patience_counter >= self.patience:
                     logger.info(f"Early stopping at epoch {epoch+1}")

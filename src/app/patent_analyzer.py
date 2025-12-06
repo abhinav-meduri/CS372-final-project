@@ -73,9 +73,10 @@ class PatentAnalyzer:
     Main analyzer class that handles all input types and modes.
     
     Features hybrid RAG architecture:
-    - Local search: FAISS embeddings + BM25 (200K patents)
-    - Online search: PatentsView API (millions of patents)
+    - Local search: PatentSBERTa embeddings via cosine similarity (200K patents)
+    - Online search: Google Patents via SerpAPI (millions of patents)
     - LLM keyword extraction for smarter queries
+    - BM25 features: Used for classifier features (not for retrieval)
     """
     
     def __init__(
@@ -119,7 +120,7 @@ class PatentAnalyzer:
         self.keyword_extractor = None
         self.online_searcher = None
         
-        # PyTorch model for novelty scoring (91.82% accuracy)
+        # PyTorch model for novelty scoring (retraining on 13 features)
         self.pytorch_model = None
         self.feature_extractor = None
         self.feature_names = None
@@ -249,25 +250,35 @@ class PatentAnalyzer:
             else:
                 print(f"  [WARN] Online Patent Search (PatentsView API fallback - no SerpAPI key)")
         
-        # Load PyTorch model for novelty scoring (91.82% accuracy) - lazy import
+        # Load PyTorch model for novelty scoring (retraining on 13 features) - lazy import
         try:
             from src.models.pytorch_classifier import PyTorchPatentClassifier
             from src.features.feature_extractor import FeatureExtractor
             self.pytorch_model = PyTorchPatentClassifier()
             self.pytorch_model.load('models/pytorch_nn')
-            print(f"  [OK] PyTorch Neural Network (91.82% accuracy)")
+            print(f"  [OK] PyTorch Neural Network (13 features)")
             
             # Load feature names
             with open('data/features/feature_names_v2.json', 'r') as f:
                 self.feature_names = json.load(f)
             
-            # Initialize feature extractor with embeddings
+            # Load BM25 index for feature extraction
+            from src.retrieval.bm25_retriever import BM25Retriever
+            bm25_retriever = BM25Retriever()
+            try:
+                bm25_retriever.load_index('bm25_index')
+                print(f"  [OK] BM25 index loaded ({len(bm25_retriever.patent_ids):,} documents)")
+            except Exception as e:
+                print(f"  [WARN] BM25 index not available: {e}")
+                bm25_retriever = None
+            
+            # Initialize feature extractor with embeddings and BM25
             self.feature_extractor = FeatureExtractor(
                 embeddings=self.embeddings,
                 patent_id_to_idx={pid: i for i, pid in enumerate(self.patent_ids)},
-                use_extended_features=False  # Use base 13 features only
+                bm25_retriever=bm25_retriever
             )
-            print(f"  [OK] Feature Extractor initialized")
+            print(f"  [OK] Feature Extractor initialized (13 features with real BM25)")
         except Exception as e:
             print(f"  [WARN] PyTorch model loading failed: {e}")
             print(f"     Falling back to similarity-based scoring")
@@ -331,29 +342,29 @@ class PatentAnalyzer:
         
         if self.use_llm_keywords and self.keyword_extractor:
             if status_callback:
-                status_callback("🤖 Generating search keywords with LLM...")
+                status_callback("Generating search keywords with LLM...")
             try:
                 # Generate optimized search terms for Google Patents
                 search_terms = self.keyword_extractor.generate_search_terms(query_text)
                 if status_callback:
-                    status_callback(f"✅ Generated {len(search_terms)} search terms: {', '.join(search_terms[:3])}...")
+                    status_callback(f"Generated {len(search_terms)} search terms: {', '.join(search_terms[:3])}...")
                 print(f"  [OK] Generated {len(search_terms)} search terms: {search_terms[:3]}...")
                 
                 # Also extract structured keywords for display
                 extracted_keywords = self.keyword_extractor.extract_keywords(query_text)
             except Exception as e:
                 if status_callback:
-                    status_callback(f"⚠️ LLM keyword generation failed, using query text")
+                    status_callback(f"WARNING: LLM keyword generation failed, using query text")
                 print(f"  [WARN] LLM keyword generation failed: {e}")
                 search_terms = [query_text[:200]]  # Fallback to single query
         
         # Step 2: Local search using PatentSBERTa embeddings
         if status_callback:
-            status_callback("🔍 Searching local database (200K patents)...")
+            status_callback("Searching local database (200K patents)...")
         query_embedding = self.st_model.encode(query_text)
         local_similar = self._find_similar(query_embedding, top_k=10)
         if status_callback:
-            status_callback(f"✅ Found {len(local_similar)} local patents")
+            status_callback(f"Found {len(local_similar)} local patents")
         
         # Step 3: Online search with multiple terms (like reference: search_on_google_patents)
         online_patents = []
@@ -371,7 +382,7 @@ class PatentAnalyzer:
                 print(f"  [INFO] No LLM keywords, using query text for online search")
             
             if status_callback:
-                status_callback(f"🌐 Searching online patents with {len(search_terms)} terms...")
+                status_callback(f"Searching online patents with {len(search_terms)} terms...")
             
             
             try:
@@ -386,7 +397,7 @@ class PatentAnalyzer:
                 for term, results in results_by_term.items():
                     search_metadata["patents_per_term"][term] = len(results)
                     if status_callback:
-                        status_callback(f"  📋 Term '{term[:50]}...': {len(results)} patents found")
+                        status_callback(f"Term '{term[:50]}...': {len(results)} patents found")
                     
                     # Convert to dict format and deduplicate
                     for r in results:
@@ -406,11 +417,11 @@ class PatentAnalyzer:
                 
                 search_metadata["online_count"] = len(online_patents)
                 if status_callback:
-                    status_callback(f"✅ Online search: {len(online_patents)} unique patents found")
+                    status_callback(f"Online search: {len(online_patents)} unique patents found")
                 print(f"  [OK] Online search found {len(online_patents)} unique patents across {len(search_terms)} terms")
             except Exception as e:
                 if status_callback:
-                    status_callback(f"❌ Online search failed: {str(e)[:100]}")
+                    status_callback(f"ERROR: Online search failed: {str(e)[:100]}")
                 print(f"  [ERROR] Online search failed: {e}")
                 import traceback
                 traceback.print_exc()
@@ -418,7 +429,7 @@ class PatentAnalyzer:
         # Step 4: Merge results (local + online, deduplicated)
         all_similar = self._merge_results(local_similar, online_patents)
         
-        # Step 5: Compute novelty score using PyTorch model (91.82% accuracy)
+        # Step 5: Compute novelty score using PyTorch model
         if self.pytorch_model and self.feature_extractor and all_similar:
             try:
                 # Extract features for top similar patent
@@ -484,7 +495,7 @@ class PatentAnalyzer:
         
         # Generate explanation
         if status_callback:
-            status_callback("💬 Generating AI explanation...")
+            status_callback("Generating AI explanation...")
         report = self.explainer.generate_explanation(
             query_patent=query_patent,
             similar_patents=all_similar,
@@ -492,7 +503,7 @@ class PatentAnalyzer:
             patentsview_evidence=patentsview_data
         )
         if status_callback:
-            status_callback("✅ Analysis complete!")
+            status_callback("Analysis complete!")
         
         return AnalysisResult(
             mode="novelty",
@@ -510,41 +521,82 @@ class PatentAnalyzer:
         )
     
     def _handle_search(self, parsed: ParsedInput, status_callback=None) -> AnalysisResult:
-        """Handle prior art search."""
+        """
+        Handle prior art search using same retrieval pipeline as novelty assessment.
+        Returns results without scoring/explanation for faster exploration.
+        """
         
         query = parsed.search_query or parsed.raw_text
         
-        # Generate embedding for search query
+        # Step 1: LLM keyword extraction (same as novelty)
+        search_terms = []
+        if self.use_llm_keywords and self.keyword_extractor:
+            if status_callback:
+                status_callback("Generating search keywords...")
+            try:
+                search_terms = self.keyword_extractor.generate_search_terms(query)
+            except Exception:
+                search_terms = [query[:200]]
+        
+        # Step 2: Local search (same as novelty)
+        if status_callback:
+            status_callback("Searching local database...")
         query_embedding = self.st_model.encode(query)
+        local_similar = self._find_similar(query_embedding, top_k=20)
         
-        # Find similar patents
-        similar = self._find_similar(query_embedding, top_k=20)
+        # Step 3: Online search (same as novelty, but optional)
+        online_patents = []
+        if self.use_online_search and self.online_searcher and search_terms:
+            if status_callback:
+                status_callback("Searching online patents...")
+            try:
+                results_by_term = self.online_searcher.search_multiple_terms(
+                    search_terms, max_per_term=10
+                )
+                seen_ids = set()
+                for term, results in results_by_term.items():
+                    for r in results:
+                        if r.patent_id not in seen_ids:
+                            seen_ids.add(r.patent_id)
+                            online_patents.append({
+                                'patent_id': r.patent_id,
+                                'title': r.title,
+                                'abstract': r.abstract,
+                                'year': r.year,
+                                'similarity': r.relevance_score * 0.8,
+                                'source': 'online'
+                            })
+            except Exception:
+                pass
         
-        # Format results with more details
+        # Step 4: Merge results (same as novelty)
+        all_results = self._merge_results(local_similar, online_patents)
+        
+        # Format results
         results = []
-        for p in similar:
+        for p in all_results[:20]:  # Top 20
             patent_data = self.patents.get(p['patent_id'], {})
             results.append({
                 'patent_id': p['patent_id'],
-                'similarity': p['similarity'],
-                'title': patent_data.get('title', 'N/A'),
-                'abstract': patent_data.get('abstract', 'N/A')[:500],
-                'year': patent_data.get('year', 'N/A'),
-                'num_claims': patent_data.get('num_claims', 'N/A')
+                'similarity': p.get('similarity', 0),
+                'title': patent_data.get('title', p.get('title', 'N/A')),
+                'abstract': patent_data.get('abstract', p.get('abstract', 'N/A'))[:500],
+                'year': patent_data.get('year', p.get('year', 'N/A')),
+                'source': p.get('source', 'local')
             })
         
-        # Generate search summary
+        # Generate summary
         summary = f"""## Prior Art Search Results
 
 ### Query: "{query}"
 
-Found **{len(results)} relevant patents** in the database.
+Found **{len(results)} relevant patents** ({len(local_similar)} local + {len(online_patents)} online).
 
 ### Top Results:
 """
         for i, r in enumerate(results[:5], 1):
             summary += f"""
-**{i}. Patent {r['patent_id']}** (Relevance: {r['similarity']:.1%})
+**{i}. Patent {r['patent_id']}** (Relevance: {r['similarity']:.1%}, Source: {r['source']})
 - Title: {r['title'][:100]}
 - Year: {r['year']}
 - Abstract: {r['abstract'][:200]}...
@@ -555,7 +607,8 @@ Found **{len(results)} relevant patents** in the database.
             success=True,
             similar_patents=results,
             explanation=summary,
-            parsed_input=parsed
+            parsed_input=parsed,
+            online_patents=online_patents if online_patents else None
         )
     
     def _find_similar(self, query_embedding: np.ndarray, top_k: int = 10) -> List[Dict]:

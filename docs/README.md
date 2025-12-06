@@ -25,14 +25,13 @@ All documentation is consolidated in the main files above. See `project_document
 - Hyperparameter tuning
 - Plots and visualizations
 
+## Additional Documentation
+
+**MLP_VS_PYTORCH_COMPARISON.md** - Detailed comparison between sklearn MLP and PyTorch NN architectures, explaining why both are compared and the benefits of the PyTorch implementation.
+
 ## Quick Reference
 
-**Production Model:** PyTorch Neural Network (91.82% accuracy, 97.21% ROC-AUC)
-
-**Best Performance Models:**
-1. Gradient Boosting: 91.95% (experimental)
-2. PyTorch NN: 91.82% (production)
-3. Ensemble: 91.77% (experimental)
+**Production Model:** PyTorch Neural Network (91.56% accuracy, 97.14% ROC-AUC on test set)
 
 **Baseline Comparisons:**
 - Random Guessing: 49.78%

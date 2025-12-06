@@ -1,10 +1,10 @@
 # Patent Novelty Assessment System
 
-A hybrid patent prior-art retrieval and novelty-scoring system that combines BM25 lexical search, PatentSBERTa embeddings, FAISS indexing, PyTorch neural network classification (91.82% accuracy), and LLM-based explainability to assess patent novelty.
+A hybrid patent prior-art retrieval and novelty-scoring system that combines BM25 lexical search, PatentSBERTa embeddings, FAISS indexing, PyTorch neural network classification, and LLM-based explainability to assess patent novelty.
 
 ## What it Does
 
-This system helps researchers and inventors quickly assess the novelty of patent applications by comparing them against a corpus of 200,000 USPTO patents (2021-2025). Given a query patent (title, abstract, and claims), the system performs hybrid retrieval combining local FAISS similarity search with online Google Patents search (via SerpAPI). LLM-powered keyword extraction (Phi-3) generates optimized search terms. A trained PyTorch neural network (91.82% accuracy) scores each candidate based on 13 engineered features including embedding similarity, text overlap metrics, and metadata features. Finally, Phi-3 LLM generates human-readable explanations citing specific evidence from the prior art, helping users understand why certain patents may pose novelty concerns.
+This system helps researchers and inventors quickly assess the novelty of patent applications by comparing them against a corpus of 200,000 USPTO patents (2021-2025). Given a query patent (title, abstract, and claims), the system performs hybrid retrieval combining local FAISS similarity search with online Google Patents search (via SerpAPI). LLM-powered keyword extraction (Phi-3) generates optimized search terms. A trained PyTorch neural network scores each candidate based on 13 engineered features including embedding similarity, text overlap metrics, and metadata features. Finally, Phi-3 LLM generates human-readable explanations citing specific evidence from the prior art, helping users understand why certain patents may pose novelty concerns.
 
 ## Quick Start
 
@@ -106,11 +106,11 @@ For detailed data setup and model training instructions, see `docs/project_docum
 
 | Metric | Test Set |
 |--------|----------|
-| **Accuracy** | 91.82% |
-| **ROC-AUC** | 0.972 |
-| **Precision** | 92.1% |
-| **Recall** | 91.4% |
-| **F1 Score** | 0.917 |
+| **Accuracy** | 91.56% |
+| **ROC-AUC** | 0.9714 |
+| **Precision** | 92.41% |
+| **Recall** | 90.39% |
+| **F1 Score** | 0.9139 |
 
 ### Baseline Comparison
 
@@ -120,17 +120,21 @@ For detailed data setup and model training instructions, see `docs/project_docum
 | Majority Class | 50.5% | 0.000 | 0.500 |
 | Title Jaccard Heuristic | 75.4% | 0.737 | N/A |
 | Logistic Regression | 90.8% | 0.905 | 0.968 |
-| **PyTorch Neural Network (Ours)** | **91.82%** | **0.913** | **0.972** |
+| **PyTorch Neural Network (Ours)** | **91.56%** | **0.9139** | **0.9714** |
 
 ### Ablation Study
 
+Ablation study results for the PyTorch Neural Network (13 features with real BM25):
+
 | Configuration | ROC-AUC | Δ AUC |
 |---------------|---------|-------|
-| Full Model (13 features) | 0.9709 | -- |
-| Without Embedding Features | 0.9671 | -0.0038 |
-| Without BM25 Features | 0.9715 | +0.0006 |
-| Without Metadata Features | 0.9642 | -0.0067 |
-| Without Text Similarity | 0.9702 | -0.0007 |
+| Full Model (13 features) | 0.9714 | -- |
+| Without Embedding Features | TBD | TBD |
+| Without BM25 Features | TBD | TBD |
+| Without Metadata Features | TBD | TBD |
+| Without Text Similarity | TBD | TBD |
+
+**Note:** Ablation study is being re-run on the trained PyTorch model with real BM25 features. Results will be updated shortly.
 
 ### Model Architecture Comparison
 
@@ -138,7 +142,7 @@ For detailed data setup and model training instructions, see `docs/project_docum
 |-------|----------|---------|
 | Gradient Boosting | 91.9% | 0.9717 |
 | MLP (32) | 91.5% | 0.9713 |
-| **PyTorch NN (64-32) [Production]** | **91.82%** | **0.9721** |
+| **PyTorch NN (128-64-32) [Production]** | **91.56%** | **0.9714** |
 | MLP (128-64-32) | 91.8% | 0.9709 |
 | Random Forest | 91.5% | 0.9709 |
 
@@ -163,7 +167,7 @@ Query Patent → LLM Keyword Extraction (Phi-3) → Hybrid Search
                                               ↓
                                Feature Extraction (13 features)
                                               ↓
-                               PyTorch NN Novelty Scoring (91.82% accuracy)
+                               PyTorch NN Novelty Scoring
                                               ↓
                                Phi-3 LLM Explanation
                                               ↓

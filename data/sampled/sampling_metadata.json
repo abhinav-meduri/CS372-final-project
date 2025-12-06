@@ -1,0 +1,18 @@
+{
+  "total_sampled": 200000,
+  "samples_per_year": {
+    "2021": 40000,
+    "2022": 40000,
+    "2023": 40000,
+    "2024": 40000,
+    "2025": 40000
+  },
+  "random_seed": 42,
+  "source_files": [
+    "data/processed/patents_2021.jsonl",
+    "data/processed/patents_2022.jsonl",
+    "data/processed/patents_2023.jsonl",
+    "data/processed/patents_2024.jsonl",
+    "data/processed/patents_2025.jsonl"
+  ]
+}

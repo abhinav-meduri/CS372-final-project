@@ -28,6 +28,7 @@ warnings.filterwarnings('ignore')
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.models.mlp_classifier import PatentNoveltyClassifier
+from src.models.pytorch_classifier import PyTorchPatentClassifier
 
 
 def load_features(features_dir: str = 'data/features', use_v2: bool = True):
@@ -333,13 +334,17 @@ def run_ablation_study(X_train, y_train, X_val, y_val, X_test, y_test, feature_n
         X_test_ablated = X_test[:, keep_indices]
         ablated_names = [feature_names[i] for i in keep_indices]
         
-        ablated_clf = PatentNoveltyClassifier(
-            hidden_layer_sizes=(64, 32), alpha=1e-4, max_iter=300,
-            early_stopping=True, n_iter_no_change=15
+        ablated_model = PyTorchPatentClassifier(
+            hidden_dims=[128, 64, 32],
+            dropout=0.3,
+            learning_rate=0.001,
+            max_epochs=50,
+            patience=10,
+            batch_size=256
         )
-        ablated_clf.fit(X_train_ablated, y_train, X_val_ablated, y_val, ablated_names)
+        ablated_model.fit(X_train_ablated, y_train, X_val_ablated, y_val, ablated_names, use_mixup=True)
         
-        ablated_metrics = ablated_clf.evaluate(X_test_ablated, y_test)
+        ablated_metrics = evaluate_model(ablated_model, X_test_ablated, y_test)
         results[f'Without {group_name}'] = ablated_metrics
     
     # Print results

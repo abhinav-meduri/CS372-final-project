@@ -1,0 +1,71 @@
+{
+  "training_time_minutes": 3.788545266787211,
+  "features": [
+    "bm25_doc_score",
+    "bm25_best_claim_score",
+    "cosine_doc_similarity",
+    "cosine_max_claim_similarity",
+    "embedding_diff_mean",
+    "embedding_diff_std",
+    "cpc_jaccard",
+    "year_diff",
+    "title_jaccard",
+    "abstract_length_ratio",
+    "claim_count_ratio",
+    "shared_rare_terms_ratio",
+    "claim_similarity"
+  ],
+  "num_features": 13,
+  "train_metrics": {
+    "accuracy": 0.9130543535356062,
+    "precision": 0.9223440221288802,
+    "recall": 0.9018331162977061,
+    "f1": 0.9119732576985413,
+    "roc_auc": 0.9714960030562925,
+    "confusion_matrix": [
+      [
+        18497,
+        1516
+      ],
+      [
+        1960,
+        18006
+      ]
+    ]
+  },
+  "val_metrics": {
+    "accuracy": 0.9207423835648418,
+    "precision": 0.92970946579194,
+    "recall": 0.912813434552565,
+    "f1": 0.9211839814277423,
+    "roc_auc": 0.9742034327754501,
+    "confusion_matrix": [
+      [
+        3920,
+        300
+      ],
+      [
+        379,
+        3968
+      ]
+    ]
+  },
+  "test_metrics": {
+    "accuracy": 0.9156162464985994,
+    "precision": 0.924114671163575,
+    "recall": 0.9038642789820923,
+    "f1": 0.9138773079213818,
+    "roc_auc": 0.9713663344496359,
+    "confusion_matrix": [
+      [
+        4009,
+        315
+      ],
+      [
+        408,
+        3836
+      ]
+    ]
+  },
+  "timestamp": "2025-12-06T01:18:59.925513"
+}

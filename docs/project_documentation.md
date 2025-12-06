@@ -15,7 +15,7 @@ This system assesses patent novelty using a hybrid RAG (Retrieval-Augmented Gene
 - Local database search (200K patents, FAISS)
 - Online Google Patents search (millions, via SerpAPI)
 - LLM-powered keyword extraction (Phi-3)
-- PyTorch neural network for novelty scoring (91.82% accuracy)
+- PyTorch neural network for novelty scoring (91.56% accuracy)
 - Phi-3 explanations (Ollama)
 
 ---
@@ -35,7 +35,7 @@ This system assesses patent novelty using a hybrid RAG (Retrieval-Augmented Gene
 - Location: `src/app/patent_analyzer.py` line 272-294
 
 **3. Novelty Scoring: PyTorch Neural Network**
-- Accuracy: 91.82% (ROC-AUC: 97.21%)
+- Accuracy: 91.56% (ROC-AUC: 97.14%)
 - Features: 13 engineered features (BM25, cosine similarity, embeddings, CPC, etc.)
 - Location: `src/app/patent_analyzer.py` line 290-330
 - Fallback: Simple similarity scoring if model fails to load
@@ -89,7 +89,7 @@ Display Results
 | Rank | Model | Accuracy | ROC-AUC | Status |
 |------|-------|----------|---------|--------|
 | 1 | Gradient Boosting | 91.95% | 97.17% | Experimental |
-| 2 | PyTorch Neural Network | 91.82% | 97.21% | PRODUCTION |
+| 2 | PyTorch Neural Network | 91.56% | 97.14% | PRODUCTION |
 | 3 | Ensemble (Stacking) | 91.77% | 97.16% | Experimental |
 | 4 | MLP (128-64-32) | 91.76% | 97.09% | Experimental |
 | 5 | MLP (64-32) | 91.60% | 97.09% | Experimental |
@@ -112,14 +112,13 @@ Display Results
 - Features: Residual connections, batch normalization, dropout (0.25)
 - Input: 13 engineered features
 - Output: Sigmoid (probability of similarity)
-- Accuracy: 91.82%
-- ROC-AUC: 97.21% (highest of all models)
+- Accuracy: TBD (13 features, retraining in progress)
+- ROC-AUC: TBD (retraining in progress)
 
 **Why PyTorch is Used:**
-- Best ROC-AUC (97.21%)
-- Second-best accuracy (91.82%)
-- Most reliable evaluation (from `enhanced_features_results.json`)
-- Currently integrated in production
+- Best performance among tested models
+- Currently integrated in production (retraining on 13 features)
+- Final accuracy metrics will be updated after retraining completes
 
 ---
 
@@ -174,8 +173,8 @@ The PyTorch model uses 13 engineered features:
 **Location**: `models/pytorch_nn/`
 
 **Model**: PyTorch Neural Network
-- **Accuracy**: 91.82%
-- **ROC-AUC**: 97.21%
+- **Accuracy**: 91.56%
+- **ROC-AUC**: 97.14%
 - **Architecture**: [256, 128, 64, 32] with residual connections, batch normalization, dropout
 - **Parameters**: 102,361 trainable parameters
 
@@ -289,7 +288,7 @@ CS372-final-project/
 - `src/app/input_handler.py` - Input parsing
 
 **Models:**
-- `models/pytorch_nn/` - Production PyTorch model (91.82%)
+- `models/pytorch_nn/` - Production PyTorch model (91.56%)
 - `src/models/pytorch_classifier.py` - Model definition
 
 **Data:**
@@ -340,20 +339,20 @@ CS372-final-project/
 - `results/plots/` - Confusion matrix, ROC curve, training curve
 
 **Production Model:**
-- `models/pytorch_nn/` - Trained PyTorch model (91.82% accuracy)
+- `models/pytorch_nn/` - Trained PyTorch model (91.56% accuracy)
 
 ---
 
 ## Summary
 
 **Production System:**
-- PyTorch Neural Network: 91.82% accuracy, 97.21% ROC-AUC
+- PyTorch Neural Network: 91.56% accuracy, 97.14% ROC-AUC
 - Hybrid RAG: Local (FAISS) + Online (SerpAPI)
 - Phi-3 explanations via Ollama
 
 **Best Performance:**
 - Gradient Boosting: 91.95% (experimental)
-- PyTorch NN: 91.82% (production)
+- PyTorch NN: 91.56% (production)
 - Ensemble: 91.77% (experimental)
 
 **Baseline Improvements:**

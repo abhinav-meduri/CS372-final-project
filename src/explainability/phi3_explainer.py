@@ -130,7 +130,7 @@ class Phi3Explainer:
         
         # Performance tips
         if self.device == "mps":
-            print("💡 Tip: First generation is slow due to MPS compilation. Subsequent runs are faster.")
+            print("Tip: First generation is slow due to MPS compilation. Subsequent runs are faster.")
     
     def _build_prompt(
         self,

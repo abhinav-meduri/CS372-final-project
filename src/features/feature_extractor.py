@@ -101,10 +101,7 @@ class FeatureExtractor:
         embeddings: Optional[np.ndarray] = None,
         patent_id_to_idx: Optional[Dict[str, int]] = None,
         bm25_retriever = None,
-        tfidf_vectorizer: Optional[TfidfVectorizer] = None,
-        claim_embedder = None,
-        citation_extractor = None,
-        use_extended_features: bool = False
+        tfidf_vectorizer: Optional[TfidfVectorizer] = None
     ):
         """
         Initialize feature extractor.
@@ -114,17 +111,11 @@ class FeatureExtractor:
             patent_id_to_idx: Mapping from patent_id to embedding index
             bm25_retriever: BM25Retriever instance for lexical scoring
             tfidf_vectorizer: Fitted TF-IDF vectorizer for rare term detection
-            claim_embedder: ClaimEmbedder instance for claim-level features
-            citation_extractor: CitationFeatureExtractor for citation features
-            use_extended_features: Whether to compute claim + citation features
         """
         self.embeddings = embeddings
         self.patent_id_to_idx = patent_id_to_idx or {}
         self.bm25_retriever = bm25_retriever
         self.tfidf_vectorizer = tfidf_vectorizer
-        self.claim_embedder = claim_embedder
-        self.citation_extractor = citation_extractor
-        self.use_extended_features = use_extended_features
         
     def set_embeddings(self, embeddings: np.ndarray, patent_ids: List[str]):
         """Set embeddings and create ID mapping."""
@@ -234,25 +225,69 @@ class FeatureExtractor:
     # BM25-based Features
     
     def compute_bm25_doc_score(self, patent1: dict, patent2: dict) -> float:
-        """Compute BM25 score between documents."""
-        if self.bm25_retriever is None:
+        """Compute BM25 score between documents using actual BM25 index."""
+        if self.bm25_retriever is None or self.bm25_retriever.bm25 is None:
             return 0.0
         
-        # Use patent1's text as query, score against patent2
+        # Use patent1's text as query
         query_text = f"{patent1.get('title', '')} {patent1.get('abstract', '')}"
-        doc_text = f"{patent2.get('title', '')} {patent2.get('abstract', '')}"
+        patent2_id = str(patent2.get('patent_id', ''))
         
-        # This is a simplified version - in practice we'd use the full BM25 index
-        # For now, return 0.0 as placeholder
-        return 0.0
+        # Search for patent2 in the index
+        try:
+            # Get BM25 score for patent2 using patent1 as query
+            query_tokens = self.bm25_retriever.tokenizer.tokenize(query_text)
+            if not query_tokens:
+                return 0.0
+            
+            # Get scores for all documents
+            scores = self.bm25_retriever.bm25.get_scores(query_tokens)
+            
+            # Find patent2's index and return its score
+            if patent2_id in self.bm25_retriever.patent_ids:
+                idx = self.bm25_retriever.patent_ids.index(patent2_id)
+                score = float(scores[idx])
+                # Normalize BM25 score to [0, 1] range
+                # BM25 scores are typically positive, use tanh normalization for stability
+                # This ensures scores are bounded and similar to other features
+                return max(0.0, min(1.0, np.tanh(score / 10.0)))
+            return 0.0
+        except Exception:
+            return 0.0
     
     def compute_bm25_best_claim_score(self, patent1: dict, patent2: dict) -> float:
         """Compute best BM25 score between claims."""
-        if self.bm25_retriever is None:
+        if self.bm25_retriever is None or self.bm25_retriever.bm25 is None:
             return 0.0
         
-        # Placeholder - would compute best claim-to-claim BM25 score
-        return 0.0
+        # Get claims from both patents
+        claims1 = patent1.get('claims', []) or patent1.get('independent_claims', [])
+        claims2 = patent2.get('claims', []) or patent2.get('independent_claims', [])
+        
+        if not claims1 or not claims2:
+            return 0.0
+        
+        # Compute BM25 score for each claim pair, return the maximum
+        best_score = 0.0
+        patent2_id = str(patent2.get('patent_id', ''))
+        
+        try:
+            for claim1 in claims1[:5]:  # Limit to first 5 claims for efficiency
+                query_tokens = self.bm25_retriever.tokenizer.tokenize(str(claim1))
+                if not query_tokens:
+                    continue
+                
+                scores = self.bm25_retriever.bm25.get_scores(query_tokens)
+                
+                if patent2_id in self.bm25_retriever.patent_ids:
+                    idx = self.bm25_retriever.patent_ids.index(patent2_id)
+                    score = float(scores[idx])
+                    normalized = max(0.0, min(1.0, np.tanh(score / 10.0)))
+                    best_score = max(best_score, normalized)
+            
+            return best_score
+        except Exception:
+            return 0.0
     
     # Rare Terms Feature
     
@@ -317,7 +352,7 @@ class FeatureExtractor:
         emb_diff_mean, emb_diff_std = self.compute_embedding_diff_stats(patent1, patent2)
         
         features = {
-            # BM25 features (placeholder for now)
+            # BM25 features (using actual BM25 index)
             'bm25_doc_score': self.compute_bm25_doc_score(patent1, patent2),
             'bm25_best_claim_score': self.compute_bm25_best_claim_score(patent1, patent2),
             
@@ -338,67 +373,12 @@ class FeatureExtractor:
             'shared_rare_terms_ratio': self.compute_shared_rare_terms_ratio(patent1, patent2),
         }
         
-        # Add extended features if enabled
-        if self.use_extended_features:
-            # Claim-level features
-            claim_features = self._compute_claim_features(patent1, patent2)
-            features.update(claim_features)
-            
-            # Citation-based features
-            citation_features = self._compute_citation_features(patent1, patent2)
-            features.update(citation_features)
-        
         return FeatureVector(
             patent_id_1=str(patent1.get('patent_id', '')),
             patent_id_2=str(patent2.get('patent_id', '')),
             features=features,
             label=label
         )
-    
-    def _compute_claim_features(self, patent1: dict, patent2: dict) -> Dict[str, float]:
-        """Compute claim-level similarity features."""
-        if self.claim_embedder is None:
-            return {
-                'max_claim_similarity': 0.0,
-                'mean_claim_similarity': 0.0,
-                'independent_claim_similarity': 0.0
-            }
-        
-        try:
-            sims = self.claim_embedder.compute_claim_similarity(patent1, patent2)
-            return {
-                'max_claim_similarity': sims['max_claim_similarity'],
-                'mean_claim_similarity': sims['mean_claim_similarity'],
-                'independent_claim_similarity': sims['independent_claim_similarity']
-            }
-        except Exception:
-            return {
-                'max_claim_similarity': 0.0,
-                'mean_claim_similarity': 0.0,
-                'independent_claim_similarity': 0.0
-            }
-    
-    def _compute_citation_features(self, patent1: dict, patent2: dict) -> Dict[str, float]:
-        """Compute citation-based features."""
-        if self.citation_extractor is None:
-            return {
-                'citation_overlap': 0.0,
-                'shared_citations_norm': 0.0,
-                'cocitation_score': 0.0,
-                'bibliographic_coupling': 0.0
-            }
-        
-        try:
-            p1_id = str(patent1.get('patent_id', ''))
-            p2_id = str(patent2.get('patent_id', ''))
-            return self.citation_extractor.extract_features(p1_id, p2_id)
-        except Exception:
-            return {
-                'citation_overlap': 0.0,
-                'shared_citations_norm': 0.0,
-                'cocitation_score': 0.0,
-                'bibliographic_coupling': 0.0
-            }
     
     def extract_batch(
         self,

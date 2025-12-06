@@ -151,9 +151,15 @@ For detailed data setup and model training instructions, see `docs/project_docum
 ## System Architecture
 
 ```
-Query Patent → PatentSBERTa Embedding → FAISS Similarity Search
+Query Patent → LLM Keyword Extraction (Phi-3) → Hybrid Search
                                               ↓
-                               Top-K Similar Patents
+                    ┌─────────────────────────┴─────────────────────────┐
+                    ↓                                                   ↓
+        Local FAISS Search (200K)                    Online Search (SerpAPI)
+                    ↓                                                   ↓
+                    └─────────────────────────┬─────────────────────────┘
+                                              ↓
+                               Top-K Similar Patents (Merged & Deduplicated)
                                               ↓
                                Feature Extraction (13 features)
                                               ↓

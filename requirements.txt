@@ -1,0 +1,60 @@
+# Patent Novelty Assessment System - Dependencies
+# Python 3.9+ recommended
+
+# Core ML & Data Processing
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+scipy>=1.11.0
+
+# Deep Learning & Embeddings
+torch>=2.0.0
+sentence-transformers>=2.2.2
+transformers>=4.40.0,<4.50.0
+
+# Vector Search
+faiss-cpu>=1.7.4  # Use faiss-gpu if CUDA available
+
+# BM25 & Information Retrieval
+rank-bm25>=0.2.2
+
+# NLP & Text Processing
+nltk>=3.8.0
+
+# LLM Integration (Local Phi-3)
+accelerate>=0.25.0
+bitsandbytes>=0.41.0  # For 4-bit quantization (CUDA only)
+
+# LoRA Fine-tuning
+peft>=0.7.0  # Parameter-Efficient Fine-Tuning
+trl>=0.7.0   # Transformers Reinforcement Learning (for RLHF)
+datasets>=2.15.0
+
+# Optional: API-based LLMs (if needed)
+openai>=1.0.0
+anthropic>=0.7.0
+
+# Web Application
+streamlit>=1.28.0
+plotly>=5.17.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Utilities
+tqdm>=4.66.0
+orjson>=3.9.0  # Fast JSON parser (2-3x faster than standard json)
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Optional: Online Patent Search (SerpAPI)
+google-search-results>=2.4.2  # For Google Patents search via SerpAPI
+
+# File Handling
+pyyaml>=6.0.0
+
+# Jupyter Support (optional, for notebooks)
+jupyter>=1.0.0
+ipykernel>=6.25.0
+accelerate>=0.26.0

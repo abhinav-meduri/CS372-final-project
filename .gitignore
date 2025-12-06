@@ -1,0 +1,107 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# Environment variables
+.env
+.env.local
+*.env
+
+# API Keys and Secrets
+*_key.txt
+*_secret.txt
+*api_key*
+*secret*
+config.json
+secrets.json
+
+# Data files (large)
+data/sampled/patents_sampled.jsonl
+data/embeddings/*.npy
+data/embeddings/*.json
+data/indices/*.pkl
+data/features/*.npy
+data/features/*.json
+data/processed/*.jsonl
+data/processed/*.txt
+data/processed/*.json
+data/citations/*.jsonl
+data/citations/*.tsv
+data/citations/*.zip
+data/*/*.tsv.zip
+data/training/*.jsonl
+
+# Models (large)
+models/*.pt
+models/*.pkl
+models/*.pth
+models/*.h5
+models/*.ckpt
+experimental/models/*.pkl
+experimental/models/*.json
+
+# Results and outputs
+results/
+*.log
+*.out
+
+# Temporary and debug files
+debug_*.py
+test_*.py
+*_debug.py
+*_test.py
+*DEBUG*.md
+*RESTART*.md
+test_minimal*.py
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Large data directories
+data/2021/
+data/2022/
+data/2023/
+data/2024/
+data/2025/
+

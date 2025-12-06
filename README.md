@@ -138,7 +138,7 @@ For detailed data setup and model training instructions, see `docs/project_docum
 |-------|----------|---------|
 | Gradient Boosting | 91.9% | 0.9717 |
 | MLP (32) | 91.5% | 0.9713 |
-| **PyTorch NN (64-32) [Production]** | **91.82%** | **0.972** |
+| **PyTorch NN (64-32) [Production]** | **91.82%** | **0.9721** |
 | MLP (128-64-32) | 91.8% | 0.9709 |
 | Random Forest | 91.5% | 0.9709 |
 

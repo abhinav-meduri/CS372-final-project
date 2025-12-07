@@ -17,7 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
+from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
 
 project_root = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -64,6 +64,8 @@ random_proba = np.random.rand(len(y_test))
 random_acc = accuracy_score(y_test, random_pred)
 random_roc = roc_auc_score(y_test, random_proba)
 random_f1 = f1_score(y_test, random_pred)
+random_precision = precision_score(y_test, random_pred, zero_division=0)
+random_recall = recall_score(y_test, random_pred, zero_division=0)
 
 # Baseline 2: Majority Class
 print("   - Majority Class Classifier...")
@@ -74,6 +76,8 @@ majority_proba = dummy_majority.predict_proba(X_test_10feat)[:, 1]
 majority_acc = accuracy_score(y_test, majority_pred)
 majority_roc = roc_auc_score(y_test, majority_proba)
 majority_f1 = f1_score(y_test, majority_pred)
+majority_precision = precision_score(y_test, majority_pred, zero_division=0)
+majority_recall = recall_score(y_test, majority_pred, zero_division=0)
 
 # Baseline 3: Logistic Regression
 print("   - Logistic Regression...")
@@ -84,6 +88,8 @@ lr_proba = lr.predict_proba(X_test_10feat)[:, 1]
 lr_acc = accuracy_score(y_test, lr_pred)
 lr_roc = roc_auc_score(y_test, lr_proba)
 lr_f1 = f1_score(y_test, lr_pred)
+lr_precision = precision_score(y_test, lr_pred, zero_division=0)
+lr_recall = recall_score(y_test, lr_pred, zero_division=0)
 
 # Baseline 4: Cosine Similarity Threshold (heuristic)
 # Use the first feature which is cosine_doc_similarity
@@ -105,26 +111,36 @@ cosine_proba = cosine_sim  # Use similarity as probability proxy
 cosine_acc = accuracy_score(y_test, cosine_pred)
 cosine_roc = roc_auc_score(y_test, cosine_proba)
 cosine_f1 = f1_score(y_test, cosine_pred)
+cosine_precision = precision_score(y_test, cosine_pred, zero_division=0)
+cosine_recall = recall_score(y_test, cosine_pred, zero_division=0)
 
 # Collect all results
 results = {
     'Random Guessing': {
         'accuracy': random_acc,
+        'precision': random_precision,
+        'recall': random_recall,
         'roc_auc': random_roc,
         'f1': random_f1
     },
     'Majority Class': {
         'accuracy': majority_acc,
+        'precision': majority_precision,
+        'recall': majority_recall,
         'roc_auc': majority_roc,
         'f1': majority_f1
     },
     'Logistic Regression': {
         'accuracy': lr_acc,
+        'precision': lr_precision,
+        'recall': lr_recall,
         'roc_auc': lr_roc,
         'f1': lr_f1
     },
     'Cosine Similarity (heuristic)': {
         'accuracy': cosine_acc,
+        'precision': cosine_precision,
+        'recall': cosine_recall,
         'roc_auc': cosine_roc,
         'f1': cosine_f1,
         'threshold': best_threshold

@@ -111,10 +111,10 @@ For detailed data setup and model training instructions, see `docs/project_docum
 | **Ensemble Model (Best)** | **91.77%** | **92.63%** | **90.60%** | **0.9160** | **0.9716** |
 | MLP Classifier | 91.48% | 93.00% | 89.54% | 0.9124 | 0.9713 |
 | PyTorch Neural Network | 90.71% | 93.23% | 87.61% | 0.9033 | 0.9682 |
-| Logistic Regression | 90.93% | - | - | 0.9063 | 0.9674 |
-| Cosine Similarity (heuristic) | 84.27% | - | - | 0.8353 | 0.9170 |
-| Random Guessing | 49.78% | - | - | 0.4950 | 0.5032 |
-| Majority Class | 50.47% | - | - | 0.0000 | 0.5000 |
+| Logistic Regression | 90.93% | 92.45% | 88.99% | 0.9063 | 0.9674 |
+| Cosine Similarity (heuristic) | 84.27% | 81.23% | 86.42% | 0.8353 | 0.9170 |
+| Random Guessing | 49.78% | 49.80% | 49.80% | 0.4950 | 0.5032 |
+| Majority Class | 50.47% | 0.00% | 0.00% | 0.0000 | 0.5000 |
 
 **Note:** The Ensemble Model combines MLP and PyTorch classifiers using stacking with probability calibration, achieving the best overall performance.
 

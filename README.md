@@ -104,25 +104,50 @@ For detailed data setup and model training instructions, see `docs/project_docum
 
 ## Evaluation
 
-### PyTorch Neural Network Performance (Production Model)
+### Model Performance Comparison (Test Set)
 
+| Model | Accuracy | Precision | Recall | F1 Score | ROC-AUC |
+|-------|----------|-----------|--------|----------|---------|
+| **Ensemble Model (Best)** | **91.77%** | **92.63%** | **90.60%** | **0.9160** | **0.9716** |
+| MLP Classifier | 91.48% | 93.00% | 89.54% | 0.9124 | 0.9713 |
+| PyTorch Neural Network | 90.71% | 93.23% | 87.61% | 0.9033 | 0.9682 |
+| Logistic Regression | 90.93% | - | - | 0.9063 | 0.9674 |
+| Cosine Similarity (heuristic) | 84.27% | - | - | 0.8353 | 0.9170 |
+| Random Guessing | 49.78% | - | - | 0.4950 | 0.5032 |
+| Majority Class | 50.47% | - | - | 0.0000 | 0.5000 |
+
+**Note:** The Ensemble Model combines MLP and PyTorch classifiers using stacking with probability calibration, achieving the best overall performance.
+
+### Individual Model Details
+
+#### Ensemble Model (Production - Best Performing)
 | Metric | Test Set |
 |--------|----------|
-| **Accuracy** | 91.56% |
-| **ROC-AUC** | 0.9714 |
-| **Precision** | 92.41% |
-| **Recall** | 90.39% |
-| **F1 Score** | 0.9139 |
+| **Accuracy** | 91.77% |
+| **Precision** | 92.63% |
+| **Recall** | 90.60% |
+| **F1 Score** | 0.9160 |
+| **ROC-AUC** | 0.9716 |
+| **Brier Score** | 0.0625 |
 
-### Baseline Comparison
+#### MLP Classifier
+| Metric | Test Set |
+|--------|----------|
+| **Accuracy** | 91.48% |
+| **Precision** | 93.00% |
+| **Recall** | 89.54% |
+| **F1 Score** | 0.9124 |
+| **ROC-AUC** | 0.9713 |
+| **Brier Score** | 0.0639 |
 
-| Model | Accuracy | F1 | ROC-AUC |
-|-------|----------|-----|---------|
-| Random Guessing | 49.8% | 0.495 | 0.500 |
-| Majority Class | 50.5% | 0.000 | 0.500 |
-| Title Jaccard Heuristic | 75.4% | 0.737 | N/A |
-| Logistic Regression | 90.8% | 0.905 | 0.968 |
-| **PyTorch Neural Network (Ours)** | **91.56%** | **0.9139** | **0.9714** |
+#### PyTorch Neural Network
+| Metric | Test Set |
+|--------|----------|
+| **Accuracy** | 90.71% |
+| **Precision** | 93.23% |
+| **Recall** | 87.61% |
+| **F1 Score** | 0.9033 |
+| **ROC-AUC** | 0.9682 |
 
 ### Ablation Study and Feature Selection
 
@@ -161,15 +186,24 @@ Based on the ablation study, we systematically evaluated each feature group's co
 - **Removed Features:** BM25 features (2 features, slightly harmful) and CPC (neutral impact)
 - **Feature Engineering Success:** 5 out of 6 feature groups are helpful, contributing ~0.041 ROC-AUC improvement
 
-### Model Architecture Comparison
+### Model Architecture Details
 
-| Model | Accuracy | ROC-AUC |
-|-------|----------|---------|
-| Gradient Boosting | 91.9% | 0.9717 |
-| MLP (32) | 91.5% | 0.9713 |
-| **PyTorch NN (128-64-32) [Production]** | **91.56%** | **0.9714** |
-| MLP (128-64-32) | 91.8% | 0.9709 |
-| Random Forest | 91.5% | 0.9709 |
+**Ensemble Model:**
+- Base Models: MLP Classifier (hidden_layer_sizes=(64,), alpha=1e-5, learning_rate=0.005) + PyTorch Neural Network (hidden_dims=[128, 64, 32], dropout=0.3, batch normalization)
+- Meta-learner: Logistic Regression with probability calibration
+- Method: Stacking with CalibratedClassifierCV
+
+**MLP Classifier:**
+- Architecture: Single hidden layer (64 neurons)
+- Regularization: L2 (alpha=1e-5)
+- Learning Rate: 0.005
+- Optimizer: Adam
+
+**PyTorch Neural Network:**
+- Architecture: [128, 64, 32] with residual connections
+- Regularization: Dropout (0.3), Batch Normalization, L2 weight decay (1e-4)
+- Learning Rate: 0.001
+- Optimizer: AdamW
 
 ### Inference Performance
 

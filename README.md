@@ -173,7 +173,7 @@ Based on the ablation study, we systematically evaluated each feature group's co
    - **BM25 Features** (`bm25_doc_score`, `bm25_best_claim_score`): Removed because ablation showed a slight performance improvement (+0.0001 ROC-AUC) when removed, indicating these features introduced noise or redundancy.
    - **CPC Features** (`cpc_jaccard`): Removed due to neutral impact (0.0000 Δ AUC), suggesting CPC codes don't provide additional discriminative power beyond other features.
 
-2. **Retained Features (11):**
+2. **Retained Features (10):**
    - **Claim Similarity** (`claim_similarity`): Most critical feature (-0.0268 ROC-AUC drop if removed)
    - **Embedding Features** (`cosine_doc_similarity`, `cosine_max_claim_similarity`, `embedding_diff_mean`, `embedding_diff_std`): Important for semantic matching (-0.0050 ROC-AUC drop)
    - **Metadata Features** (`year_diff`, `abstract_length_ratio`, `claim_count_ratio`): Important for maintaining high recall (-0.0079 ROC-AUC drop)

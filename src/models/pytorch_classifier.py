@@ -30,10 +30,22 @@ logger = logging.getLogger(__name__)
 
 
 class ResidualBlock(nn.Module):
-    """Residual block with batch norm and dropout."""
+    """Residual block with batch norm and dropout.
     
-    def __init__(self, in_features: int, out_features: int, dropout: float = 0.3, bn_momentum: float = 0.1):
-        super().__init__()
+    Parameters
+    ----------
+    in_features : int
+        Number of input features
+    out_features : int
+        Number of output features
+    dropout : float, default=0.3
+        Dropout probability
+    bn_momentum : float, default=0.1
+        Batch normalization momentum
+    """
+    
+    def __init__(self, in_features, out_features, dropout=0.3, bn_momentum=0.1):
+        super(ResidualBlock, self).__init__()
         self.fc = nn.Linear(in_features, out_features)
         self.bn = nn.BatchNorm1d(out_features, momentum=bn_momentum)
         self.dropout = nn.Dropout(dropout)
@@ -61,24 +73,25 @@ class ResidualBlock(nn.Module):
 
 
 class PatentNoveltyNet(nn.Module):
-    """
-    Deep neural network for patent novelty classification.
+    """Definition of a neural network for patent novelty classification
+    in PyTorch, inheriting from the torch.nn.Module base class.
     
-    Architecture:
-    - Input layer with batch norm
-    - Multiple residual blocks with dropout
-    - Output layer with sigmoid
+    Parameters
+    ----------
+    input_dim : int
+        Number of input features
+    hidden_dims : list of int, default=[128, 64, 32]
+        Number of hidden units in each layer
+    dropout : float, default=0.3
+        Dropout probability
+    use_residual : bool, default=True
+        Whether to use residual connections
+    bn_momentum : float, default=0.1
+        Batch normalization momentum
     """
     
-    def __init__(
-        self,
-        input_dim: int,
-        hidden_dims: List[int] = [128, 64, 32],
-        dropout: float = 0.3,
-        use_residual: bool = True,
-        bn_momentum: float = 0.1
-    ):
-        super().__init__()
+    def __init__(self, input_dim, hidden_dims=[128, 64, 32], dropout=0.3, use_residual=True, bn_momentum=0.1):
+        super(PatentNoveltyNet, self).__init__()
         
         self.input_bn = nn.BatchNorm1d(input_dim, momentum=bn_momentum)
         
@@ -112,6 +125,18 @@ class PatentNoveltyNet(nn.Module):
                     nn.init.zeros_(m.bias)
     
     def forward(self, x):
+        """Compute logits for batch x by forward propagation.
+        
+        Parameters
+        ----------
+        x : tensor, shape = [n_examples, n_features]
+            Input features
+        
+        Returns
+        -------
+        tensor, shape = [n_examples, 1]
+            Output probabilities
+        """
         x = self.input_bn(x)
         x = self.hidden_layers(x)
         x = self.output_bn(x)
@@ -350,7 +375,8 @@ class PyTorchPatentClassifier:
         
         return self.training_history
     
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+    def predict_proba(self, X):
+        """Predict probabilities for each row in X for each class"""
         """Predict probabilities."""
         self.model.eval()
         X_scaled = self.scaler.transform(X)
@@ -361,12 +387,13 @@ class PyTorchPatentClassifier:
         
         return np.hstack([1 - probs, probs])
     
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X):
+        """Predict class for each row in X"""
         """Predict classes."""
         probs = self.predict_proba(X)[:, 1]
         return (probs > 0.5).astype(int)
     
-    def evaluate(self, X: np.ndarray, y: np.ndarray) -> Dict:
+    def evaluate(self, X, y):
         """Evaluate model performance."""
         y_pred = self.predict(X)
         y_proba = self.predict_proba(X)[:, 1]

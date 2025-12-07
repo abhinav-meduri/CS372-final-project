@@ -27,24 +27,39 @@ warnings.filterwarnings('ignore')
 
 class PatentNoveltyClassifier:
     """
-    Multi-layer Perceptron classifier for patent novelty assessment.
+    MLP for binary classification with:
+    - Single hidden layer with ReLU activation
+    - Output layer with sigmoid activation
+    - Cross-entropy loss function
+    - Minibatch SGD optimization via sklearn
     
-    Wraps sklearn's MLPClassifier with additional features:
-    - Training history tracking
-    - Feature importance via permutation importance
-    - Model persistence
-    - Visualization utilities
+    Parameters
+    ----------
+    hidden_layer_sizes : tuple of int, default=(64,)
+        Number of hidden units in each layer
+    alpha : float, default=1e-5
+        L2 regularization parameter
+    learning_rate_init : float, default=0.005
+        Initial learning rate
+    max_iter : int, default=500
+        Maximum number of iterations
+    early_stopping : bool, default=True
+        Whether to use early stopping
+    n_iter_no_change : int, default=20
+        Number of iterations with no improvement before stopping
+    random_state : int, default=42
+        Random seed
     """
     
     def __init__(
         self,
-        hidden_layer_sizes: Tuple[int, ...] = (64,),
-        alpha: float = 1e-5,
-        learning_rate_init: float = 0.005,
-        max_iter: int = 500,
-        early_stopping: bool = True,
-        n_iter_no_change: int = 20,
-        random_state: int = 42
+        hidden_layer_sizes=(64,),
+        alpha=1e-5,
+        learning_rate_init=0.005,
+        max_iter=500,
+        early_stopping=True,
+        n_iter_no_change=20,
+        random_state=42
     ):
         """
         Initialize the MLP classifier.
@@ -123,17 +138,19 @@ class PatentNoveltyClassifier:
                     'n_iter': self.model.n_iter_
                 }
     
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X):
+        """Predict class for each row in X"""
         """Predict binary labels."""
         X_scaled = self.scaler.transform(X)
         return self.model.predict(X_scaled)
     
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+    def predict_proba(self, X):
+        """Predict probabilities for each row in X for each class"""
         """Predict class probabilities."""
         X_scaled = self.scaler.transform(X)
         return self.model.predict_proba(X_scaled)
     
-    def evaluate(self, X: np.ndarray, y: np.ndarray) -> Dict:
+    def evaluate(self, X, y):
         """
         Evaluate the model and return metrics.
         
@@ -160,7 +177,7 @@ class PatentNoveltyClassifier:
         
         return metrics
     
-    def get_feature_importance(self, n_samples: int = 1000) -> Dict[str, float]:
+    def get_feature_importance(self, n_samples=1000):
         """
         Estimate feature importance using permutation importance.
         

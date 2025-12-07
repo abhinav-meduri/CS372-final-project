@@ -32,26 +32,31 @@ logger = logging.getLogger(__name__)
 class ResidualBlock(nn.Module):
     """Residual block with batch norm and dropout."""
     
-    def __init__(self, in_features: int, out_features: int, dropout: float = 0.3):
+    def __init__(self, in_features: int, out_features: int, dropout: float = 0.3, bn_momentum: float = 0.1):
         super().__init__()
         self.fc = nn.Linear(in_features, out_features)
-        self.bn = nn.BatchNorm1d(out_features)
+        self.bn = nn.BatchNorm1d(out_features, momentum=bn_momentum)
         self.dropout = nn.Dropout(dropout)
         self.activation = nn.ReLU()
         
         # Skip connection (identity or projection)
         if in_features != out_features:
             self.skip = nn.Linear(in_features, out_features)
+            self.skip_bn = nn.BatchNorm1d(out_features, momentum=bn_momentum)
         else:
             self.skip = nn.Identity()
+            self.skip_bn = None
     
     def forward(self, x):
         identity = self.skip(x)
+        if self.skip_bn is not None:
+            identity = self.skip_bn(identity)
+        
         out = self.fc(x)
         out = self.bn(out)
         out = self.activation(out)
         out = self.dropout(out)
-        out = out + identity  # Residual connection
+        out = out + identity
         return out
 
 
@@ -70,26 +75,28 @@ class PatentNoveltyNet(nn.Module):
         input_dim: int,
         hidden_dims: List[int] = [128, 64, 32],
         dropout: float = 0.3,
-        use_residual: bool = True
+        use_residual: bool = True,
+        bn_momentum: float = 0.1
     ):
         super().__init__()
         
-        self.input_bn = nn.BatchNorm1d(input_dim)
+        self.input_bn = nn.BatchNorm1d(input_dim, momentum=bn_momentum)
         
         layers = []
         prev_dim = input_dim
         
         for hidden_dim in hidden_dims:
             if use_residual:
-                layers.append(ResidualBlock(prev_dim, hidden_dim, dropout))
+                layers.append(ResidualBlock(prev_dim, hidden_dim, dropout, bn_momentum))
             else:
                 layers.append(nn.Linear(prev_dim, hidden_dim))
-                layers.append(nn.BatchNorm1d(hidden_dim))
+                layers.append(nn.BatchNorm1d(hidden_dim, momentum=bn_momentum))
                 layers.append(nn.ReLU())
                 layers.append(nn.Dropout(dropout))
             prev_dim = hidden_dim
         
         self.hidden_layers = nn.Sequential(*layers)
+        self.output_bn = nn.BatchNorm1d(prev_dim, momentum=bn_momentum)
         self.output_layer = nn.Linear(prev_dim, 1)
         self.sigmoid = nn.Sigmoid()
         
@@ -107,6 +114,7 @@ class PatentNoveltyNet(nn.Module):
     def forward(self, x):
         x = self.input_bn(x)
         x = self.hidden_layers(x)
+        x = self.output_bn(x)
         x = self.output_layer(x)
         x = self.sigmoid(x)
         return x
@@ -127,6 +135,7 @@ class PyTorchPatentClassifier:
         max_epochs: int = 100,
         patience: int = 15,
         use_residual: bool = True,
+        bn_momentum: float = 0.1,
         device: str = None
     ):
         self.hidden_dims = hidden_dims
@@ -137,6 +146,7 @@ class PyTorchPatentClassifier:
         self.max_epochs = max_epochs
         self.patience = patience
         self.use_residual = use_residual
+        self.bn_momentum = bn_momentum
         
         # Auto-detect device
         if device is None:
@@ -219,7 +229,8 @@ class PyTorchPatentClassifier:
             input_dim=input_dim,
             hidden_dims=self.hidden_dims,
             dropout=self.dropout,
-            use_residual=self.use_residual
+            use_residual=self.use_residual,
+            bn_momentum=self.bn_momentum
         ).to(self.device)
         
         # Loss and optimizer
@@ -380,6 +391,7 @@ class PyTorchPatentClassifier:
             "hidden_dims": self.hidden_dims,
             "dropout": self.dropout,
             "use_residual": self.use_residual,
+            "bn_momentum": self.bn_momentum,
             "input_dim": self.model.input_bn.num_features
         }, path / "pytorch_model.pt")
         
@@ -403,12 +415,14 @@ class PyTorchPatentClassifier:
         self.hidden_dims = checkpoint["hidden_dims"]
         self.dropout = checkpoint["dropout"]
         self.use_residual = checkpoint["use_residual"]
+        self.bn_momentum = checkpoint.get("bn_momentum", 0.1)
         
         self.model = PatentNoveltyNet(
             input_dim=checkpoint["input_dim"],
             hidden_dims=self.hidden_dims,
             dropout=self.dropout,
-            use_residual=self.use_residual
+            use_residual=self.use_residual,
+            bn_momentum=self.bn_momentum
         ).to(self.device)
         
         self.model.load_state_dict(checkpoint["model_state_dict"])

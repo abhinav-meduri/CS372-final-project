@@ -8,11 +8,9 @@ Handles all input modalities:
 
 Integrates:
 - PatentSBERTa embeddings
-- BM25 retrieval
 - MLP similarity scoring
 - Phi-3 explanations
-- PatentsView API evidence
-- Online patent search (Google Patents via PatentsView API)
+- Online patent search (Google Patents via SerpAPI)
 - LLM-based keyword extraction for smarter search
 """
 
@@ -76,7 +74,6 @@ class PatentAnalyzer:
     - Local search: PatentSBERTa embeddings via cosine similarity (200K patents)
     - Online search: Google Patents via SerpAPI (millions of patents)
     - LLM keyword extraction for smarter queries
-    - BM25 features: Used for classifier features (not for retrieval)
     """
     
     def __init__(
@@ -85,7 +82,6 @@ class PatentAnalyzer:
         embeddings_path: str = 'data/embeddings/patent_embeddings.npy',
         patent_ids_path: str = 'data/embeddings/patent_ids.json',
         use_full_phi3: bool = False,
-        use_patentsview: bool = True,
         use_online_search: bool = True,
         use_llm_keywords: bool = True,
         serpapi_key: str = None
@@ -98,23 +94,20 @@ class PatentAnalyzer:
             embeddings_path: Path to pre-computed embeddings
             patent_ids_path: Path to patent IDs list
             use_full_phi3: Use full Phi-3 model (requires GPU)
-            use_patentsview: Fetch evidence from PatentsView API
-            use_online_search: Enable online patent search (NEW)
-            use_llm_keywords: Use LLM for keyword extraction (NEW)
+            use_online_search: Enable online patent search via SerpAPI
+            use_llm_keywords: Use LLM for keyword extraction
         """
         self.use_full_phi3 = use_full_phi3
-        self.use_patentsview = use_patentsview
         self.use_online_search = use_online_search
         self.use_llm_keywords = use_llm_keywords
         self.serpapi_key = serpapi_key
         
-        self.patents = None
+        self.patents = {}  # Will be loaded lazily
         self.embeddings = None
         self.patent_ids = None
         self.st_model = None
         self.input_handler = InputHandler()
         self.explainer = None
-        self.patentsview_api = None
         
         # Hybrid RAG components
         self.keyword_extractor = None
@@ -132,18 +125,102 @@ class PatentAnalyzer:
         
         self._loaded = False
     
-    def load(self):
-        """Load all resources."""
+    def load(self, status_callback=None):
+        """Load all resources lazily with progress updates."""
         if self._loaded:
             return
         
-        print("Loading Patent Analyzer resources...")
+        def update(msg):
+            if status_callback:
+                status_callback(msg)
+            print(f"  {msg}")
         
-        # Optimized loading: Use faster JSON parser and load in chunks
-        print("  [INFO] Loading patents database (optimized loading)...")
+        update("Loading Patent Analyzer resources...")
+        
+        if self.embeddings is None:
+            update("Loading embeddings...")
+            self.embeddings = np.load(self.embeddings_path, mmap_mode='r')
+            with open(self.patent_ids_path, 'r') as f:
+                self.patent_ids = json.load(f)
+            update(f"Loaded {len(self.embeddings):,} embeddings")
+        
+        if self.st_model is None:
+            update("Loading PatentSBERTa model...")
+            from sentence_transformers import SentenceTransformer
+            self.st_model = SentenceTransformer('AI-Growth-Lab/PatentSBERTa')
+            update("PatentSBERTa model loaded")
+        
+        if self.explainer is None:
+            update("Initializing Phi-3 explainer...")
+            from src.explainability.phi3_explainer import get_explainer
+            self.explainer = get_explainer(use_full_model=self.use_full_phi3, use_ollama=True)
+            update("Phi-3 explainer ready")
+        
+        if self.use_llm_keywords and self.keyword_extractor is None:
+            update("Initializing LLM keyword extractor...")
+            from data.api.online_search import LLMKeywordExtractor
+            self.keyword_extractor = LLMKeywordExtractor()
+            update("LLM Keyword Extractor ready")
+        
+        if self.use_online_search and self.online_searcher is None:
+            update("Initializing online search...")
+            import os
+            from data.api.online_search import GooglePatentsSearch
+            api_key = self.serpapi_key or os.environ.get('SERPAPI_KEY')
+            self.online_searcher = GooglePatentsSearch(serpapi_key=api_key)
+            if api_key:
+                update("Online Patent Search ready (SerpAPI)")
+            else:
+                update("Online Patent Search disabled (SerpAPI key not configured)")
+        
+        if self.pytorch_model is None:
+            try:
+                update("Loading PyTorch model...")
+                from src.models.pytorch_classifier import PyTorchPatentClassifier
+                from src.features.feature_extract import FeatureExtractor
+                self.pytorch_model = PyTorchPatentClassifier()
+                self.pytorch_model.load('models/pytorch_nn')
+                
+                with open('data/features/feature_names_v2.json', 'r') as f:
+                    self.feature_names = json.load(f)
+                
+                self.feature_extractor = FeatureExtractor(
+                    embeddings=self.embeddings,
+                    patent_id_to_idx={pid: i for i, pid in enumerate(self.patent_ids)}
+                )
+                update("PyTorch model and feature extractor ready")
+            except Exception as e:
+                update(f"PyTorch model loading failed: {e}")
+                update("Falling back to similarity-based scoring")
+                self.pytorch_model = None
+        
         self.patents = {}
+        self._patents_file_handle = None
         
-        # Try to use orjson for faster parsing (falls back to json if not available)
+        self._loaded = True
+        update("Ready! (Components loaded on-demand)")
+    
+    def _load_patent(self, patent_id: str) -> Optional[Dict]:
+        """Load a single patent on-demand from the JSONL file."""
+        if patent_id in self.patents:
+            return self.patents[patent_id]
+        
+        self._load_patents_batch([patent_id])
+        return self.patents.get(patent_id)
+    
+    def _load_patents_batch(self, patent_ids: List[str], status_callback=None):
+        """Load multiple patents efficiently in one pass."""
+        if not patent_ids:
+            return
+        
+        to_load = [str(pid) for pid in patent_ids if str(pid) not in self.patents]
+        if not to_load:
+            return
+        
+        to_load_set = set(to_load)
+        loaded_count = 0
+        max_to_load = len(to_load_set)
+        
         try:
             import orjson
             use_orjson = True
@@ -151,141 +228,28 @@ class PatentAnalyzer:
             use_orjson = False
         
         try:
-            # Optimized loading with buffered I/O and faster JSON parsing
-            line_count = 0
-            start_time = time.time()
-            
-            with open(self.patents_path, 'rb', buffering=2*1024*1024) as f:  # 2MB buffer
-                buffer = b''
-                for chunk in iter(lambda: f.read(4*1024*1024), b''):  # 4MB chunks
-                    buffer += chunk
-                    while b'\n' in buffer:
-                        line, buffer = buffer.split(b'\n', 1)
-                        if line.strip():
-                            try:
-                                if use_orjson:
-                                    p = orjson.loads(line)
-                                else:
-                                    p = json.loads(line.decode('utf-8'))
-                                self.patents[str(p['patent_id'])] = p
-                                line_count += 1
-                                
-                                # Progress update every 50K patents
-                                if line_count % 50000 == 0:
-                                    elapsed = time.time() - start_time
-                                    rate = line_count / elapsed if elapsed > 0 else 0
-                                    remaining = (200000 - line_count) / rate if rate > 0 else 0
-                                    print(f"    Loaded {line_count:,}/{200000:,} patents ({rate:.0f} patents/sec, ~{remaining:.0f}s remaining)...", end='\r')
-                            except (json.JSONDecodeError, UnicodeDecodeError) as e:
-                                # Skip malformed lines
-                                continue
-                
-                # Process remaining buffer
-                if buffer.strip():
+            with open(self.patents_path, 'rb', buffering=1024*1024) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    if loaded_count >= max_to_load:
+                        break
                     try:
                         if use_orjson:
-                            p = orjson.loads(buffer)
+                            p = orjson.loads(line)
                         else:
-                            p = json.loads(buffer.decode('utf-8'))
-                        self.patents[str(p['patent_id'])] = p
-                        line_count += 1
-                    except (json.JSONDecodeError, UnicodeDecodeError):
-                        pass
-            
-            load_time = time.time() - start_time
-            print(f"  [OK] {len(self.patents):,} patents loaded in {load_time:.1f}s ({len(self.patents)/load_time:.0f} patents/sec)")
+                            p = json.loads(line.decode('utf-8'))
+                        pid = str(p.get('patent_id', ''))
+                        if pid and pid in to_load_set:
+                            self.patents[pid] = p
+                            loaded_count += 1
+                            to_load_set.discard(pid)
+                    except (json.JSONDecodeError, UnicodeDecodeError, KeyError):
+                        continue
         except Exception as e:
-            # Fallback to original method if optimization fails
-            print(f"  [WARN] Optimized loading failed, using standard method: {e}")
-            import traceback
-            traceback.print_exc()
-            with open(self.patents_path, 'r') as f:
-                line_count = 0
-                for line in f:
-                    p = json.loads(line)
-                    self.patents[str(p['patent_id'])] = p
-                    line_count += 1
-                    if line_count % 10000 == 0:
-                        print(f"    Loaded {line_count:,} patents...", end='\r')
-            print(f"  [OK] {len(self.patents):,} patents (local database)")
-        
-        # Load embeddings
-        self.embeddings = np.load(self.embeddings_path)
-        with open(self.patent_ids_path, 'r') as f:
-            self.patent_ids = json.load(f)
-        print(f"  [OK] {len(self.embeddings):,} embeddings (FAISS)")
-        
-        # Load sentence transformer (lazy import)
-        from sentence_transformers import SentenceTransformer
-        self.st_model = SentenceTransformer('AI-Growth-Lab/PatentSBERTa')
-        print(f"  [OK] PatentSBERTa model")
-        
-        # Initialize explainer (use Ollama for faster inference with KV caching) - lazy import
-        from src.explainability.phi3_explainer import get_explainer
-        self.explainer = get_explainer(use_full_model=self.use_full_phi3, use_ollama=True)
-        mode_str = 'Ollama + KV cache' if self.use_full_phi3 else 'template'
-        print(f"  [OK] Phi-3 explainer ({mode_str})")
-        
-        # Initialize PatentsView API - lazy import
-        if self.use_patentsview:
-            from data.api.patentsview_api import PatentsViewAPI
-            self.patentsview_api = PatentsViewAPI()
-            print(f"  [OK] PatentsView API")
-        
-        # Initialize LLM keyword extractor (Hybrid RAG) - lazy import
-        if self.use_llm_keywords:
-            from data.api.online_search import LLMKeywordExtractor
-            self.keyword_extractor = LLMKeywordExtractor()
-            print(f"  [OK] LLM Keyword Extractor (Phi-3)")
-        
-        # Initialize online search (Hybrid RAG) - lazy import
-        if self.use_online_search:
-            import os
-            from data.api.online_search import GooglePatentsSearch
-            # Use provided key, or fall back to environment variable
-            api_key = self.serpapi_key or os.environ.get('SERPAPI_KEY')
-            self.online_searcher = GooglePatentsSearch(serpapi_key=api_key)
-            if api_key:
-                print(f"  [OK] Online Patent Search (SerpAPI - Google Patents)")
-            else:
-                print(f"  [WARN] Online Patent Search (PatentsView API fallback - no SerpAPI key)")
-        
-        # Load PyTorch model for novelty scoring (retraining on 13 features) - lazy import
-        try:
-            from src.models.pytorch_classifier import PyTorchPatentClassifier
-            from src.features.feature_extractor import FeatureExtractor
-            self.pytorch_model = PyTorchPatentClassifier()
-            self.pytorch_model.load('models/pytorch_nn')
-            print(f"  [OK] PyTorch Neural Network (13 features)")
-            
-            # Load feature names
-            with open('data/features/feature_names_v2.json', 'r') as f:
-                self.feature_names = json.load(f)
-            
-            # Load BM25 index for feature extraction
-            from src.retrieval.bm25_retriever import BM25Retriever
-            bm25_retriever = BM25Retriever()
-            try:
-                bm25_retriever.load_index('bm25_index')
-                print(f"  [OK] BM25 index loaded ({len(bm25_retriever.patent_ids):,} documents)")
-            except Exception as e:
-                print(f"  [WARN] BM25 index not available: {e}")
-                bm25_retriever = None
-            
-            # Initialize feature extractor with embeddings and BM25
-            self.feature_extractor = FeatureExtractor(
-                embeddings=self.embeddings,
-                patent_id_to_idx={pid: i for i, pid in enumerate(self.patent_ids)},
-                bm25_retriever=bm25_retriever
-            )
-            print(f"  [OK] Feature Extractor initialized (13 features with real BM25)")
-        except Exception as e:
-            print(f"  [WARN] PyTorch model loading failed: {e}")
-            print(f"     Falling back to similarity-based scoring")
-            self.pytorch_model = None
-        
-        self._loaded = True
-        print("Ready! (Hybrid RAG + PyTorch NN enabled)" if (self.use_online_search or self.use_llm_keywords) else "Ready!")
+            if status_callback:
+                status_callback(f"Warning: Could not load some patents: {e}")
+            print(f"Warning: Could not load some patents: {e}")
     
     def analyze(self, input_data: Union[str, Dict], status_callback=None) -> AnalysisResult:
         """
@@ -301,7 +265,7 @@ class PatentAnalyzer:
         Returns:
             AnalysisResult with novelty assessment or search results
         """
-        self.load()
+        self.load(status_callback=status_callback)
         
         try:
             # Parse input
@@ -332,11 +296,9 @@ class PatentAnalyzer:
         4. Assess novelty
         """
         
-        # Convert to patent dict
         query_patent = parsed.to_patent_dict()
         query_text = query_patent.get('abstract', '')[:500]
         
-        # Step 1: Generate multiple search terms using LLM (like reference: generate_search_terms)
         extracted_keywords = None
         search_terms = []
         
@@ -344,29 +306,25 @@ class PatentAnalyzer:
             if status_callback:
                 status_callback("Generating search keywords with LLM...")
             try:
-                # Generate optimized search terms for Google Patents
                 search_terms = self.keyword_extractor.generate_search_terms(query_text)
                 if status_callback:
                     status_callback(f"Generated {len(search_terms)} search terms: {', '.join(search_terms[:3])}...")
-                print(f"  [OK] Generated {len(search_terms)} search terms: {search_terms[:3]}...")
+                print(f"Generated {len(search_terms)} search terms: {search_terms[:3]}...")
                 
-                # Also extract structured keywords for display
                 extracted_keywords = self.keyword_extractor.extract_keywords(query_text)
             except Exception as e:
                 if status_callback:
                     status_callback(f"WARNING: LLM keyword generation failed, using query text")
-                print(f"  [WARN] LLM keyword generation failed: {e}")
-                search_terms = [query_text[:200]]  # Fallback to single query
+                print(f"LLM keyword generation failed: {e}")
+                search_terms = [query_text[:200]]
         
-        # Step 2: Local search using PatentSBERTa embeddings
         if status_callback:
             status_callback("Searching local database (200K patents)...")
         query_embedding = self.st_model.encode(query_text)
-        local_similar = self._find_similar(query_embedding, top_k=10)
+        local_similar = self._find_similar(query_embedding, top_k=10, status_callback=status_callback)
         if status_callback:
             status_callback(f"Found {len(local_similar)} local patents")
         
-        # Step 3: Online search with multiple terms (like reference: search_on_google_patents)
         online_patents = []
         search_metadata = {
             "local_count": len(local_similar), 
@@ -376,107 +334,107 @@ class PatentAnalyzer:
         }
         
         if self.use_online_search and self.online_searcher:
-            # Use search terms if available, otherwise use query text as fallback
             if not search_terms:
-                search_terms = [query_text[:200]]  # Fallback to query text
-                print(f"  [INFO] No LLM keywords, using query text for online search")
+                search_terms = [query_text[:200]]
+                print(f"No LLM keywords, using query text for online search")
             
             if status_callback:
                 status_callback(f"Searching online patents with {len(search_terms)} terms...")
             
-            
             try:
-                # Search each term separately (like reference implementation)
+                print(f"Calling online_searcher.search_multiple_terms with {len(search_terms)} terms")
+                print(f"Online searcher type: {type(self.online_searcher)}")
+                print(f"Online searcher use_serpapi: {getattr(self.online_searcher, 'use_serpapi', 'N/A')}")
+                
                 results_by_term = self.online_searcher.search_multiple_terms(
                     search_terms, 
-                    max_per_term=10  # Top 10 per term
+                    max_per_term=10
                 )
                 
+                print(f"search_multiple_terms returned {len(results_by_term)} terms with results")
                 
                 seen_ids = set()
                 for term, results in results_by_term.items():
                     search_metadata["patents_per_term"][term] = len(results)
                     if status_callback:
                         status_callback(f"Term '{term[:50]}...': {len(results)} patents found")
+                    print(f"Term '{term[:50]}...': {len(results)} results (type: {type(results)})")
                     
-                    # Convert to dict format and deduplicate
+                    if not isinstance(results, list):
+                        print(f"WARNING: results is not a list, it's {type(results)}")
+                        continue
+                    
                     for r in results:
+                        if not hasattr(r, 'patent_id'):
+                            print(f"WARNING: result object missing patent_id attribute: {type(r)}")
+                            continue
+                            
                         if r.patent_id not in seen_ids:
                             seen_ids.add(r.patent_id)
                             online_patents.append({
                                 'patent_id': r.patent_id,
-                                'title': r.title,
-                                'abstract': r.abstract,
-                                'year': r.year,
-                                'similarity': r.relevance_score * 0.8,  # Adjust for comparability
+                                'title': str(r.title) if hasattr(r, 'title') else 'Unknown',
+                                'abstract': str(r.abstract) if hasattr(r, 'abstract') else '',
+                                'year': r.year if hasattr(r, 'year') else None,
+                                'similarity': r.relevance_score * 0.8 if hasattr(r, 'relevance_score') else 0.5,
                                 'source': 'online',
-                                'url': r.url,
-                                'inventor': r.inventor,
-                                'assignee': r.assignee
+                                'url': r.url if hasattr(r, 'url') else None,
+                                'inventor': r.inventor if hasattr(r, 'inventor') else None,
+                                'assignee': r.assignee if hasattr(r, 'assignee') else None
                             })
                 
                 search_metadata["online_count"] = len(online_patents)
                 if status_callback:
                     status_callback(f"Online search: {len(online_patents)} unique patents found")
-                print(f"  [OK] Online search found {len(online_patents)} unique patents across {len(search_terms)} terms")
+                print(f"Online search found {len(online_patents)} unique patents across {len(search_terms)} terms")
             except Exception as e:
                 if status_callback:
                     status_callback(f"ERROR: Online search failed: {str(e)[:100]}")
-                print(f"  [ERROR] Online search failed: {e}")
+                print(f"Online search failed: {e}")
                 import traceback
                 traceback.print_exc()
         
-        # Step 4: Merge results (local + online, deduplicated)
         all_similar = self._merge_results(local_similar, online_patents)
         
-        # Step 5: Compute novelty score using PyTorch model
         if self.pytorch_model and self.feature_extractor and all_similar:
             try:
-                # Extract features for top similar patent
                 top_similar = all_similar[0]
                 patent_id = str(top_similar['patent_id'])
-                similar_patent_data = self.patents.get(patent_id) if self.patents else None
+                similar_patent_data = self.patents.get(patent_id)
+                
+                if not similar_patent_data:
+                    similar_patent_data = self._load_patent(patent_id)
                 
                 if similar_patent_data:
-                    # Ensure query patent has embedding (needed for feature extraction)
                     if 'embedding' not in query_patent:
                         query_text = query_patent.get('abstract', '')[:500]
                         query_patent['embedding'] = self.st_model.encode(query_text)
                     
-                    # Extract features
                     feature_vector = self.feature_extractor.extract_features(
                         query_patent,
                         similar_patent_data
                     )
                     
-                    # Convert to array in correct order (using feature_names_v2.json order)
                     feature_array = feature_vector.to_array(self.feature_names).reshape(1, -1)
-                    
-                    # Predict similarity probability (0 = not similar, 1 = similar)
                     similarity_prob = self.pytorch_model.predict_proba(feature_array)[0][1]
-                    
-                    # Novelty = 1 - similarity
                     novelty_score = 1 - similarity_prob
                     
-                    print(f"  [OK] PyTorch model scored: similarity={similarity_prob:.3f}, novelty={novelty_score:.3f}")
+                    print(f"PyTorch model scored: similarity={similarity_prob:.3f}, novelty={novelty_score:.3f}")
                 else:
-                    # Fallback if patent data not found
                     max_sim = all_similar[0]['similarity'] if all_similar else 0
                     novelty_score = 1 - max_sim
-                    print(f"  [WARN] Using similarity fallback (patent data not found)")
+                    print(f"Using similarity fallback (patent data not found)")
             except Exception as e:
-                # Fallback to similarity-based scoring
                 max_sim = all_similar[0]['similarity'] if all_similar else 0
                 novelty_score = 1 - max_sim
-                print(f"  [WARN] PyTorch scoring failed: {e}, using similarity fallback")
+                print(f"PyTorch scoring failed: {e}, using similarity fallback")
                 import traceback
                 traceback.print_exc()
         else:
-            # Fallback to similarity-based scoring
             max_sim = all_similar[0]['similarity'] if all_similar else 0
             novelty_score = 1 - max_sim
             if not self.pytorch_model:
-                print(f"  [WARN] PyTorch model not loaded, using similarity-based scoring")
+                print(f"PyTorch model not loaded, using similarity-based scoring")
         
         # Determine assessment
         if novelty_score > 0.7:
@@ -488,11 +446,6 @@ class PatentAnalyzer:
         else:
             assessment = "NOT NOVEL"
         
-        # Fetch PatentsView evidence
-        patentsview_data = None
-        if self.use_patentsview and self.patentsview_api:
-            patentsview_data = self._fetch_patentsview_evidence(all_similar[:3])
-        
         # Generate explanation
         if status_callback:
             status_callback("Generating AI explanation...")
@@ -500,7 +453,7 @@ class PatentAnalyzer:
             query_patent=query_patent,
             similar_patents=all_similar,
             novelty_score=novelty_score,
-            patentsview_evidence=patentsview_data
+            patentsview_evidence=None
         )
         if status_callback:
             status_callback("Analysis complete!")
@@ -513,7 +466,7 @@ class PatentAnalyzer:
             similar_patents=all_similar,
             explanation=report.full_explanation,
             recommendation=report.recommendation,
-            patentsview_data=patentsview_data,
+            patentsview_data=None,
             parsed_input=parsed,
             extracted_keywords=extracted_keywords,
             online_patents=online_patents,
@@ -528,7 +481,6 @@ class PatentAnalyzer:
         
         query = parsed.search_query or parsed.raw_text
         
-        # Step 1: LLM keyword extraction (same as novelty)
         search_terms = []
         if self.use_llm_keywords and self.keyword_extractor:
             if status_callback:
@@ -538,13 +490,11 @@ class PatentAnalyzer:
             except Exception:
                 search_terms = [query[:200]]
         
-        # Step 2: Local search (same as novelty)
         if status_callback:
             status_callback("Searching local database...")
         query_embedding = self.st_model.encode(query)
-        local_similar = self._find_similar(query_embedding, top_k=20)
+        local_similar = self._find_similar(query_embedding, top_k=20, status_callback=status_callback)
         
-        # Step 3: Online search (same as novelty, but optional)
         online_patents = []
         if self.use_online_search and self.online_searcher and search_terms:
             if status_callback:
@@ -569,13 +519,17 @@ class PatentAnalyzer:
             except Exception:
                 pass
         
-        # Step 4: Merge results (same as novelty)
         all_results = self._merge_results(local_similar, online_patents)
         
-        # Format results
+        patent_ids_to_load = [str(p['patent_id']) for p in all_results[:20]]
+        self._load_patents_batch(patent_ids_to_load, status_callback=status_callback)
+        
         results = []
-        for p in all_results[:20]:  # Top 20
-            patent_data = self.patents.get(p['patent_id'], {})
+        for p in all_results[:20]:
+            patent_id = str(p['patent_id'])
+            patent_data = self.patents.get(patent_id, {})
+            if not patent_data:
+                patent_data = self._load_patent(patent_id) or {}
             results.append({
                 'patent_id': p['patent_id'],
                 'similarity': p.get('similarity', 0),
@@ -585,7 +539,6 @@ class PatentAnalyzer:
                 'source': p.get('source', 'local')
             })
         
-        # Generate summary
         summary = f"""## Prior Art Search Results
 
 ### Query: "{query}"
@@ -611,7 +564,7 @@ Found **{len(results)} relevant patents** ({len(local_similar)} local + {len(onl
             online_patents=online_patents if online_patents else None
         )
     
-    def _find_similar(self, query_embedding: np.ndarray, top_k: int = 10) -> List[Dict]:
+    def _find_similar(self, query_embedding: np.ndarray, top_k: int = 10, status_callback=None) -> List[Dict]:
         """Find similar patents using cosine similarity."""
         
         query_norm = query_embedding / np.linalg.norm(query_embedding)
@@ -620,10 +573,17 @@ Found **{len(results)} relevant patents** ({len(local_similar)} local + {len(onl
         
         top_indices = np.argsort(similarities)[::-1][:top_k]
         
+        patent_ids_to_load = [self.patent_ids[idx] for idx in top_indices]
+        if status_callback:
+            status_callback(f"Loading patent details for top {len(patent_ids_to_load)} results...")
+        self._load_patents_batch(patent_ids_to_load, status_callback=status_callback)
+        
         results = []
         for idx in top_indices:
             pid = self.patent_ids[idx]
-            patent_data = self.patents.get(pid, {})
+            patent_data = self.patents.get(str(pid), {})
+            if not patent_data:
+                patent_data = self._load_patent(str(pid)) or {}
             results.append({
                 'patent_id': pid,
                 'similarity': float(similarities[idx]),
@@ -636,17 +596,10 @@ Found **{len(results)} relevant patents** ({len(local_similar)} local + {len(onl
         return results
     
     def _merge_results(self, local_results: List[Dict], online_results: List[Dict]) -> List[Dict]:
-        """
-        Merge local and online search results.
-        
-        - Deduplicates by patent_id
-        - Re-ranks by similarity
-        - Tags source (local/online)
-        """
+        """Merge local and online search results."""
         seen_ids = set()
         merged = []
         
-        # Add local results first
         for r in local_results:
             pid = str(r.get('patent_id', ''))
             if pid and pid not in seen_ids:
@@ -654,7 +607,6 @@ Found **{len(results)} relevant patents** ({len(local_similar)} local + {len(onl
                 r['source'] = 'local'
                 merged.append(r)
         
-        # Add online results (if not duplicate)
         for r in online_results:
             pid = str(r.get('patent_id', ''))
             if pid and pid not in seen_ids:
@@ -662,29 +614,10 @@ Found **{len(results)} relevant patents** ({len(local_similar)} local + {len(onl
                 r['source'] = 'online'
                 merged.append(r)
         
-        # Sort by similarity
         merged.sort(key=lambda x: x.get('similarity', 0), reverse=True)
         
         return merged
     
-    def _fetch_patentsview_evidence(self, patents: List[Dict]) -> List[Dict]:
-        """Fetch evidence from PatentsView API."""
-        
-        evidence = []
-        for p in patents:
-            try:
-                details = self.patentsview_api.get_patent_details(p['patent_id'])
-                if details:
-                    evidence.append(details)
-            except Exception as e:
-                # PatentsView API may return 410 Gone for some patents (deprecated endpoint or missing data)
-                # This is non-critical - we continue without the evidence
-                if "410" not in str(e):
-                    print(f"API Error for patent {p['patent_id']}: {e}")
-                # Silently skip 410 errors as they're expected for some patents
-                pass
-        
-        return evidence
 
 
 def demo():
@@ -694,7 +627,7 @@ def demo():
     print("PATENT ANALYZER DEMO")
     print("=" * 60)
     
-    analyzer = PatentAnalyzer(use_patentsview=False)  # Disable API for demo
+    analyzer = PatentAnalyzer()  # Demo analyzer
     
     # Test 1: Free-text idea
     print("\n" + "-" * 40)

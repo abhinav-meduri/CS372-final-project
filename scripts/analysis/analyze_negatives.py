@@ -164,7 +164,7 @@ def generate_hard_negatives(
 
 def test_model_on_hard_negatives(hard_negatives: list, patents: dict):
     """Test the trained model on hard negatives."""
-    from src.features.feature_extractor import FeatureExtractor
+    from src.features.feature_extract import FeatureExtractor
     from src.models.mlp_classifier import PatentNoveltyClassifier
     
     print("\nTesting model on hard negatives...")

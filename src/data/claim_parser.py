@@ -370,7 +370,7 @@ def demo_claim_parsing():
         }
     ]
     
-    print("=== Claim Parsing Demo ===\n")
+    print("Claim Parsing Demo\n")
     
     for claim in claims:
         parsed = parser.parse_claim(

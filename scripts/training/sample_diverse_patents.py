@@ -146,7 +146,7 @@ def create_diverse_sample(
         print(f"  {year}: {count:,} patents ({pct:.1f}%)")
     
     # Perform sampling
-    print("\n=== Sampling Patents ===")
+    print("\nSampling Patents")
     all_sampled = []
     
     for yf in year_files:
@@ -190,7 +190,7 @@ def create_diverse_sample(
     print(f"   Metadata: {output_path / 'sampling_metadata.json'}")
     
     # Verify diversity
-    print("\n=== Diversity Verification ===")
+    print("\nDiversity Verification")
     year_distribution = {}
     for p in all_sampled:
         y = p.get('year', 'unknown')

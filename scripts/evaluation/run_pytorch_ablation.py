@@ -149,7 +149,7 @@ def run_ablation_study():
         print(f"\nMost impactful feature group: {most_impactful}")
         print(f"  Removing it decreases ROC-AUC by {impacts[most_impactful]:.4f}")
     
-    output_path = Path('results/comprehensive_evaluation/pytorch_ablation_study.json')
+    output_path = Path('results/ablation_study/pytorch_ablation_study.json')
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=2)

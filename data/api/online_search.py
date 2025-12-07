@@ -22,7 +22,7 @@ import re
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Try to import serpapi
+# Import SerpAPI
 try:
     from serpapi import GoogleSearch
     SERPAPI_AVAILABLE = True
@@ -33,12 +33,12 @@ except ImportError:
 
 @dataclass
 class PatentSearchResult:
-    """Unified patent search result from Google Patents or PatentsView."""
+    """Unified patent search result from Google Patents via SerpAPI."""
     patent_id: str
     title: str
     abstract: str
     year: Optional[int]
-    source: str  # 'local', 'google_patents', or 'patentsview_api'
+    source: str  # 'local' or 'google_patents'
     relevance_score: float
     url: Optional[str] = None
     inventor: Optional[str] = None
@@ -71,8 +71,6 @@ class LLMKeywordExtractor:
     - (coffee brew) AND (pot) OR (top)
     - (stabilization system)
     - (vr heading) OR (logic freq)
-    
-    Similar to the reference implementation using GPT-4.
     """
     
     def __init__(self, ollama_url: str = "http://localhost:11434", num_search_terms: int = 5):
@@ -83,8 +81,6 @@ class LLMKeywordExtractor:
     def generate_search_terms(self, user_input: str) -> List[str]:
         """
         Generate optimized Google Patents search queries.
-        
-        Similar to reference: generate_search_terms()
         
         Returns:
             List of search query strings optimized for Google Patents
@@ -98,9 +94,9 @@ RULES:
 - Focus on technical terms and key concepts
 
 INVENTION IDEA:
----BEGINNING---
+beginning
 {user_input}
----END---
+end
 
 OUTPUT: Return ONLY a numbered list of search queries, one per line:
 1. (first search query)
@@ -255,8 +251,6 @@ class GooglePatentsSearch:
     - Full patent metadata
     - Scholar citations
     - Clustered results
-    
-    Fallback to PatentsView API if no SerpAPI key.
     """
     
     def __init__(self, serpapi_key: Optional[str] = None):
@@ -274,11 +268,12 @@ class GooglePatentsSearch:
             logger.info(f"[OK] Using SerpAPI for Google Patents search (millions of patents)")
             logger.info(f"  API key configured: {str(self.serpapi_key)[:8]}...")
         else:
-            logger.warning("[WARN] SerpAPI not configured. Using PatentsView API fallback.")
+            logger.warning("[WARN] SerpAPI not configured. Online search will return 0 results.")
             if not SERPAPI_AVAILABLE:
-                logger.warning("  Install with: pip install google-search-results")
+                logger.warning("  Install SerpAPI with: pip install google-search-results")
             if not key_valid:
                 logger.warning("  Set SERPAPI_KEY environment variable or pass to constructor")
+                logger.warning("  Get a free SerpAPI key at: https://serpapi.com/")
     
     def search(self, query: str, max_results: int = 10) -> List[PatentSearchResult]:
         """
@@ -294,13 +289,12 @@ class GooglePatentsSearch:
         if self.use_serpapi:
             return self._search_serpapi(query, max_results)
         else:
-            return self._search_patentsview(query, max_results)
+            logger.warning("SerpAPI key not configured. Cannot perform online search.")
+            return []
     
     def search_multiple_terms(self, terms: List[str], max_per_term: int = 10) -> Dict[str, List[PatentSearchResult]]:
         """
         Search multiple terms and return results grouped by term.
-        
-        Similar to the reference implementation's search_on_google_patents().
         
         Args:
             terms: List of search terms
@@ -325,11 +319,7 @@ class GooglePatentsSearch:
         return results_by_term
     
     def _search_serpapi(self, query: str, max_results: int) -> List[PatentSearchResult]:
-        """
-        Search using SerpAPI's Google Patents engine.
-        
-        Follows the reference implementation pattern.
-        """
+        """Search using SerpAPI's Google Patents engine."""
         if not SERPAPI_AVAILABLE:
             logger.error("serpapi package not installed")
             return []
@@ -370,25 +360,32 @@ class GooglePatentsSearch:
             results = []
             
             for result in organic_results[:max_results]:
-                # Extract patent info following reference implementation
                 patent_id = result.get("publication_number") or result.get("patent_id") or result.get("patent_number")
                 
                 if not patent_id:
                     logger.warning(f"Skipping result without patent_id: {result.get('title', 'Unknown')[:50]}")
                     continue
-                    
-                    results.append(PatentSearchResult(
+                
+                title = result.get("title", "Unknown")
+                if isinstance(title, dict):
+                    title = title.get("text", str(title))
+                
+                abstract = result.get("snippet") or result.get("abstract", "")
+                if isinstance(abstract, dict):
+                    abstract = abstract.get("text", str(abstract))
+                
+                results.append(PatentSearchResult(
                     patent_id=str(patent_id),
-                        title=result.get("title", "Unknown"),
-                        abstract=result.get("snippet", result.get("abstract", "")),
-                        year=self._extract_year(result.get("publication_date", "")),
-                        source='google_patents',
-                        relevance_score=1.0 - (len(results) * 0.05),  # Decay by position
-                    url=result.get("link", result.get("serpapi_link", f"https://patents.google.com/patent/{patent_id}")),
-                        inventor=result.get("inventor"),
-                        assignee=result.get("assignee"),
-                        filing_date=result.get("filing_date")
-                    ))
+                    title=str(title),
+                    abstract=str(abstract),
+                    year=self._extract_year(result.get("publication_date", "")),
+                    source='google_patents',
+                    relevance_score=1.0 - (len(results) * 0.05),
+                    url=result.get("link") or result.get("serpapi_link") or f"https://patents.google.com/patent/{patent_id}",
+                    inventor=result.get("inventor"),
+                    assignee=result.get("assignee"),
+                    filing_date=result.get("filing_date")
+                ))
             
             logger.info(f"SerpAPI found {len(results)} patents for: {query[:50]}...")
             return results
@@ -398,55 +395,6 @@ class GooglePatentsSearch:
             import traceback
             logger.error(traceback.format_exc())
             return []
-    
-    def _search_patentsview(self, query: str, max_results: int) -> List[PatentSearchResult]:
-        """
-        Fallback search using free PatentsView API.
-        
-        Note: PatentsView has fewer patents than Google Patents.
-        """
-        try:
-            response = requests.post(
-                "https://api.patentsview.org/patents/query",
-                json={
-                    "q": {"_text_any": {"patent_abstract": query}},
-                    "f": ["patent_number", "patent_title", "patent_abstract", "patent_date"],
-                    "o": {"per_page": max_results}
-                },
-                headers={"Content-Type": "application/json"},
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                results = []
-                
-                for patent in data.get('patents', [])[:max_results]:
-                    year = None
-                    if patent.get('patent_date'):
-                        try:
-                            year = int(patent['patent_date'][:4])
-                        except:
-                            pass
-                    
-                    patent_num = patent.get('patent_number', 'Unknown')
-                    results.append(PatentSearchResult(
-                        patent_id=patent_num,
-                        title=patent.get('patent_title', 'Unknown'),
-                        abstract=patent.get('patent_abstract', ''),
-                        year=year,
-                        source='patentsview_api',
-                        relevance_score=1.0 - (len(results) * 0.05),
-                        url=f"https://patents.google.com/patent/US{patent_num}"
-                    ))
-                
-                logger.info(f"PatentsView found {len(results)} patents")
-                return results
-                
-        except Exception as e:
-            logger.warning(f"PatentsView API search failed: {e}")
-        
-        return []
     
     def _extract_year(self, date_str: str) -> Optional[int]:
         """Extract year from date string."""
@@ -465,7 +413,7 @@ class HybridPatentSearch:
     """
     Hybrid search combining local database with online Google Patents.
     
-    Architecture (similar to reference implementation):
+    Architecture:
     1. Generate search terms using LLM (Phi-3)
     2. Search local FAISS + BM25 database
     3. Search online Google Patents via SerpAPI
@@ -493,11 +441,6 @@ class HybridPatentSearch:
     ) -> Tuple[List[PatentSearchResult], Dict]:
         """
         Perform hybrid search.
-        
-        Similar to reference implementation workflow:
-        1. generate_search_terms()
-        2. search_on_google_patents()
-        3. merge and deduplicate
         
         Returns:
             Tuple of (results, metadata)
@@ -536,7 +479,6 @@ class HybridPatentSearch:
         if self.use_online and self.online_searcher is not None:
             logger.info("Searching Google Patents online...")
             
-            # Search each term (like reference: search_on_google_patents)
             results_by_term = self.online_searcher.search_multiple_terms(
                 search_terms, 
                 max_per_term=max_per_term
@@ -580,10 +522,9 @@ class HybridPatentSearch:
 
 
 def demo_keyword_extraction():
-    """Demo the LLM keyword extraction (like reference generate_search_terms)."""
+    """Demo the LLM keyword extraction."""
     print("=" * 60)
-    print("LLM SEARCH TERM GENERATION DEMO")
-    print("(Similar to reference: generate_search_terms)")
+    print("llm search term generation demo")
     print("=" * 60)
     
     extractor = LLMKeywordExtractor(num_search_terms=5)
@@ -612,15 +553,15 @@ def demo_keyword_extraction():
 def demo_online_search():
     """Demo the Google Patents search via SerpAPI."""
     print("\n" + "=" * 60)
-    print("GOOGLE PATENTS SEARCH DEMO")
-    print("(Similar to reference: search_on_google_patents)")
+    print("google patents search demo")
     print("=" * 60)
     
     serpapi_key = os.environ.get('SERPAPI_KEY')
     
     if not serpapi_key:
-        print("\n[WARN] SERPAPI_KEY not set. Using PatentsView fallback.")
+        print("\n[WARN] SERPAPI_KEY not set.")
         print("  For full Google Patents access, set: export SERPAPI_KEY=your_key")
+        print("  Get a free key at: https://serpapi.com/")
     
     searcher = GooglePatentsSearch(serpapi_key)
     
@@ -643,8 +584,8 @@ def demo_online_search():
 def demo_hybrid_search():
     """Demo the full hybrid search pipeline."""
     print("\n" + "=" * 60)
-    print("HYBRID PATENT SEARCH DEMO")
-    print("(LLM Keywords + Google Patents + Local)")
+    print("hybrid patent search demo")
+    print("(llm keywords + google patents + local)")
     print("=" * 60)
     
     hybrid = HybridPatentSearch(use_online=True, num_search_terms=3)
@@ -660,12 +601,12 @@ def demo_hybrid_search():
     
     results, metadata = hybrid.search_and_rank(test_input, max_results=10)
     
-    print(f"\n--- SEARCH METADATA ---")
+    print(f"\nsearch metadata")
     print(f"Search terms generated: {metadata['search_terms']}")
     print(f"Online patents found: {metadata['online_count']}")
     print(f"Unique patents: {metadata['total_unique']}")
     
-    print(f"\n--- TOP RESULTS ---")
+    print(f"\ntop results")
     for i, r in enumerate(results[:5], 1):
         print(f"\n{i}. {r['patent_id']} ({r['source']})")
         print(f"   Title: {r['title'][:60]}...")

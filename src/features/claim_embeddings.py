@@ -154,7 +154,7 @@ class ClaimEmbedder:
 
 def demo_claim_embeddings():
     """Demo claim embedding features."""
-    print("=== Claim Embedding Demo ===\n")
+    print("Claim Embedding Demo\n")
     
     # Load sample patents
     patents = []

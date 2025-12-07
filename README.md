@@ -1,10 +1,10 @@
 # Patent Novelty Assessment System
 
-A hybrid patent prior-art retrieval and novelty-scoring system that combines BM25 lexical search, PatentSBERTa embeddings, FAISS indexing, PyTorch neural network classification, and LLM-based explainability to assess patent novelty.
+A hybrid patent prior-art retrieval and novelty-scoring system that combines PatentSBERTa embeddings, FAISS indexing, PyTorch neural network classification, and LLM-based explainability to assess patent novelty.
 
 ## What it Does
 
-This system helps researchers and inventors quickly assess the novelty of patent applications by comparing them against a corpus of 200,000 USPTO patents (2021-2025). Given a query patent (title, abstract, and claims), the system performs hybrid retrieval combining local FAISS similarity search with online Google Patents search (via SerpAPI). LLM-powered keyword extraction (Phi-3) generates optimized search terms. A trained PyTorch neural network scores each candidate based on 13 engineered features including embedding similarity, text overlap metrics, and metadata features. Finally, Phi-3 LLM generates human-readable explanations citing specific evidence from the prior art, helping users understand why certain patents may pose novelty concerns.
+This system helps researchers and inventors quickly assess the novelty of patent applications by comparing them against a corpus of 200,000 USPTO patents (2021-2025). Given a query patent (title, abstract, and claims), the system performs hybrid retrieval combining local FAISS similarity search with online Google Patents search (via SerpAPI). LLM-powered keyword extraction (Phi-3) generates optimized search terms. A trained PyTorch neural network scores each candidate based on 10 engineered features (reduced from 13 via ablation study) including embedding similarity, text overlap metrics, and metadata features. Finally, Phi-3 LLM generates human-readable explanations citing specific evidence from the prior art, helping users understand why certain patents may pose novelty concerns.
 
 ## Quick Start
 
@@ -70,8 +70,8 @@ streamlit run app.py
    - `data/sampled/patents_sampled.jsonl` (~3.8GB) - 200K patent database
    - `data/embeddings/patent_embeddings.npy` - Pre-computed embeddings
    - `data/embeddings/patent_ids.json` - Patent ID mapping
-   - `data/features/feature_names_v2.json` - Feature names (included in repo)
-   - `models/pytorch_nn/pytorch_model.pt` - Trained PyTorch model
+   - `data/features/feature_names_v2.json` - Feature names (10 features, included in repo)
+   - `models/pytorch_nn/pytorch_model.pt` - Trained PyTorch model (10 features)
    - `models/pytorch_nn/scaler_pytorch.pkl` - Feature scaler
    - `models/pytorch_nn/training_history_pytorch.json` - Training metadata
    
@@ -81,6 +81,8 @@ streamlit run app.py
    - Contact repository maintainer for data access
    
    **Note:** Without these files, the application will not run. The system needs the patent database and pre-computed embeddings for similarity search.
+   
+   **Important:** The model must be retrained with 10 features (BM25 and CPC features removed based on ablation study). If you have an older model trained with 13 features, you'll need to retrain it using the training scripts in `scripts/training/`.
 
 5. **Configure API Keys (Optional - for online search)**
    Create a `.env` file:
@@ -122,19 +124,42 @@ For detailed data setup and model training instructions, see `docs/project_docum
 | Logistic Regression | 90.8% | 0.905 | 0.968 |
 | **PyTorch Neural Network (Ours)** | **91.56%** | **0.9139** | **0.9714** |
 
-### Ablation Study
+### Ablation Study and Feature Selection
 
-Ablation study results for the PyTorch Neural Network (13 features with real BM25):
+**Initial Feature Set:** The model was initially trained with 13 engineered features covering embedding similarity, text overlap, metadata, and lexical matching.
 
-| Configuration | ROC-AUC | Δ AUC |
-|---------------|---------|-------|
-| Full Model (13 features) | 0.9714 | -- |
-| Without Embedding Features | TBD | TBD |
-| Without BM25 Features | TBD | TBD |
-| Without Metadata Features | TBD | TBD |
-| Without Text Similarity | TBD | TBD |
+**Ablation Study Results (13-feature model):**
 
-**Note:** Ablation study is being re-run on the trained PyTorch model with real BM25 features. Results will be updated shortly.
+| Configuration | Accuracy | ROC-AUC | F1 Score | Δ AUC |
+|---------------|----------|---------|----------|-------|
+| Full Model (13 features) | 91.53% | 0.9713 | 0.9136 | -- |
+| Without Claim Features | 87.24% | 0.9445 | 0.8667 | -0.0268 |
+| Without Embedding Features | 90.57% | 0.9663 | 0.9035 | -0.0050 |
+| Without Text Similarity | 91.11% | 0.9701 | 0.9089 | -0.0012 |
+| Without Metadata Features | 90.43% | 0.9634 | 0.9008 | -0.0079 |
+| Without BM25 Features | 91.64% | 0.9714 | 0.9145 | +0.0001 |
+| Without CPC Features | 91.57% | 0.9713 | 0.9142 | 0.0000 |
+
+**Feature Selection Process:**
+
+Based on the ablation study, we systematically evaluated each feature group's contribution:
+
+1. **Removed Features (2):**
+   - **BM25 Features** (`bm25_doc_score`, `bm25_best_claim_score`): Removed because ablation showed a slight performance improvement (+0.0001 ROC-AUC) when removed, indicating these features introduced noise or redundancy.
+   - **CPC Features** (`cpc_jaccard`): Removed due to neutral impact (0.0000 Δ AUC), suggesting CPC codes don't provide additional discriminative power beyond other features.
+
+2. **Retained Features (11):**
+   - **Claim Similarity** (`claim_similarity`): Most critical feature (-0.0268 ROC-AUC drop if removed)
+   - **Embedding Features** (`cosine_doc_similarity`, `cosine_max_claim_similarity`, `embedding_diff_mean`, `embedding_diff_std`): Important for semantic matching (-0.0050 ROC-AUC drop)
+   - **Metadata Features** (`year_diff`, `abstract_length_ratio`, `claim_count_ratio`): Important for maintaining high recall (-0.0079 ROC-AUC drop)
+   - **Text Similarity** (`title_jaccard`, `shared_rare_terms_ratio`): Helpful for lexical matching (-0.0012 ROC-AUC drop)
+
+**Final Model:** The production model uses **10 features** (reduced from 13), achieving comparable or slightly better performance (ROC-AUC: 0.9714) with a simpler, more interpretable feature set.
+
+**Key Findings:**
+- **Most Critical Feature:** Claim similarity features (removal causes largest performance drop: -0.0268)
+- **Removed Features:** BM25 features (2 features, slightly harmful) and CPC (neutral impact)
+- **Feature Engineering Success:** 5 out of 6 feature groups are helpful, contributing ~0.041 ROC-AUC improvement
 
 ### Model Architecture Comparison
 
@@ -152,34 +177,8 @@ Ablation study results for the PyTorch Neural Network (13 features with real BM2
 - **Batch Throughput:** 1.4M+ predictions/second
 - **LLM Explanation Generation:** ~30-60 seconds via Ollama
 
-## System Architecture
-
-```
-Query Patent → LLM Keyword Extraction (Phi-3) → Hybrid Search
-                                              ↓
-                    ┌─────────────────────────┴─────────────────────────┐
-                    ↓                                                   ↓
-        Local FAISS Search (200K)                    Online Search (SerpAPI)
-                    ↓                                                   ↓
-                    └─────────────────────────┬─────────────────────────┘
-                                              ↓
-                               Top-K Similar Patents (Merged & Deduplicated)
-                                              ↓
-                               Feature Extraction (13 features)
-                                              ↓
-                               PyTorch NN Novelty Scoring
-                                              ↓
-                               Phi-3 LLM Explanation
-                                              ↓
-                               Streamlit UI Output
-```
-
 ## Individual Contributions
 
 *Individual project - single contributor*
-
----
-
-⚠️ **DISCLAIMER:** This is a research prototype for educational purposes. Not legal advice. Always consult a patent attorney for legal novelty opinions.
 
 

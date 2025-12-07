@@ -1,13 +1,10 @@
 {
-  "training_time_minutes": 3.788545266787211,
+  "training_time_minutes": 3.2265880505243936,
   "features": [
-    "bm25_doc_score",
-    "bm25_best_claim_score",
     "cosine_doc_similarity",
     "cosine_max_claim_similarity",
     "embedding_diff_mean",
     "embedding_diff_std",
-    "cpc_jaccard",
     "year_diff",
     "title_jaccard",
     "abstract_length_ratio",
@@ -15,57 +12,68 @@
     "shared_rare_terms_ratio",
     "claim_similarity"
   ],
-  "num_features": 13,
+  "num_features": 10,
+  "removed_features": [
+    "bm25_doc_score",
+    "bm25_best_claim_score",
+    "cpc_jaccard"
+  ],
+  "enhanced_batch_norm": true,
+  "bn_improvements": [
+    "Batch norm in skip connections",
+    "Batch norm before output layer",
+    "Configurable momentum"
+  ],
   "train_metrics": {
-    "accuracy": 0.9130543535356062,
-    "precision": 0.9223440221288802,
-    "recall": 0.9018331162977061,
-    "f1": 0.9119732576985413,
-    "roc_auc": 0.9714960030562925,
+    "accuracy": 0.9056504664949099,
+    "precision": 0.931104248748802,
+    "recall": 0.8758890113192427,
+    "f1": 0.9026530401569113,
+    "roc_auc": 0.9670705126512001,
     "confusion_matrix": [
       [
-        18497,
-        1516
+        18719,
+        1294
       ],
       [
-        1960,
-        18006
+        2478,
+        17488
       ]
     ]
   },
   "val_metrics": {
-    "accuracy": 0.9207423835648418,
-    "precision": 0.92970946579194,
-    "recall": 0.912813434552565,
-    "f1": 0.9211839814277423,
-    "roc_auc": 0.9742034327754501,
+    "accuracy": 0.9138554920042021,
+    "precision": 0.9376667475139462,
+    "recall": 0.889348976305498,
+    "f1": 0.9128689492325855,
+    "roc_auc": 0.9703790106376134,
     "confusion_matrix": [
       [
-        3920,
-        300
+        3963,
+        257
       ],
       [
-        379,
-        3968
+        481,
+        3866
       ]
     ]
   },
   "test_metrics": {
-    "accuracy": 0.9156162464985994,
-    "precision": 0.924114671163575,
-    "recall": 0.9038642789820923,
-    "f1": 0.9138773079213818,
-    "roc_auc": 0.9713663344496359,
+    "accuracy": 0.9070961718020542,
+    "precision": 0.932296890672016,
+    "recall": 0.8760603204524033,
+    "f1": 0.9033041788143829,
+    "roc_auc": 0.968224880355659,
     "confusion_matrix": [
       [
-        4009,
-        315
+        4054,
+        270
       ],
       [
-        408,
-        3836
+        526,
+        3718
       ]
     ]
   },
-  "timestamp": "2025-12-06T01:18:59.925513"
+  "timestamp": "2025-12-07T00:38:14.069392"
 }

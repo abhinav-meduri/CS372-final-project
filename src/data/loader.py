@@ -137,12 +137,12 @@ def explore_data_schema():
     
     if available_years:
         year = available_years[0]
-        print(f"\n=== Claims Schema ({year}) ===")
+        print(f"\nClaims Schema ({year})")
         claims_sample = loader.peek_columns(year, "claims")
         print(f"Columns: {list(claims_sample.columns)}")
         print(claims_sample.head())
         
-        print(f"\n=== Summary Schema ({year}) ===")
+        print(f"\nSummary Schema ({year})")
         summary_sample = loader.peek_columns(year, "summary")
         print(f"Columns: {list(summary_sample.columns)}")
         print(summary_sample.head())

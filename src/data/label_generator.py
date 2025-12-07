@@ -395,7 +395,7 @@ class LabeledDataGenerator:
         Returns:
             Tuple of (train_pairs, val_pairs, test_pairs)
         """
-        print("\n=== Generating Balanced Training Dataset ===")
+        print("\nGenerating Balanced Training Dataset")
         
         # Generate positive pairs
         cpc_positives = self.generate_cpc_positive_pairs(n_positive)
@@ -473,7 +473,7 @@ class LabeledDataGenerator:
 
 def demo_label_generation():
     """Demo the label generator with a small sample."""
-    print("=== Label Generation Demo ===\n")
+    print("Label Generation Demo\n")
     
     generator = LabeledDataGenerator()
     
@@ -487,7 +487,7 @@ def demo_label_generation():
     )
     
     # Show sample
-    print("\n=== Sample Pairs ===")
+    print("\nSample Pairs")
     for pair in train[:3]:
         print(f"  {pair.patent_id_1} <-> {pair.patent_id_2}")
         print(f"    Label: {pair.label}, Type: {pair.pair_type}")

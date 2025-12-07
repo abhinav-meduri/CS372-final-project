@@ -12,21 +12,17 @@ from pathlib import Path
 import json
 import time
 
-# Add project root to path (deferred to avoid blocking)
 _project_root = Path(__file__).parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-# Page config - must be first Streamlit command, but optimized
 st.set_page_config(
     page_title="Patent Novelty Analyzer",
-    page_icon="",  # Empty icon for faster loading
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items=None  # Disable menu for faster startup
+    menu_items=None
 )
-
-# CSS will be loaded in main() to avoid processing on every import
 
 @st.cache_resource
 def load_analyzer(serpapi_key: str = None, use_online: bool = True, use_keywords: bool = True):
@@ -34,7 +30,6 @@ def load_analyzer(serpapi_key: str = None, use_online: bool = True, use_keywords
     from src.app.patent_analyzer import PatentAnalyzer
     
     return PatentAnalyzer(
-        use_patentsview=True,
         use_full_phi3=True,
         use_online_search=use_online,
         use_llm_keywords=use_keywords,
@@ -62,21 +57,31 @@ def render_prior_art(patents: list, max_display: int = 10):
     
     for i, patent in enumerate(patents[:max_display]):
         patent_id = patent.get('patent_id', 'N/A')
-        title = html.escape(patent.get('title', 'No title available'))
-        abstract = html.escape(patent.get('abstract', 'No abstract available'))
-        # Try multiple field names for year
+        title_raw = patent.get('title', 'No title available')
+        abstract_raw = patent.get('abstract', 'No abstract available')
+        title = html.escape(str(title_raw) if title_raw and not isinstance(title_raw, dict) else 'No title available')
+        
+        # Process abstract: ensure good coverage and ends with period
+        abstract_text = str(abstract_raw) if abstract_raw and not isinstance(abstract_raw, dict) else 'No abstract available'
+        if abstract_text and abstract_text != 'No abstract available':
+            # Show up to 800 characters for decent coverage
+            if len(abstract_text) > 800:
+                abstract_text = abstract_text[:800].rsplit('.', 1)[0] + '.'
+            # Ensure it ends with a period
+            abstract_text = abstract_text.strip()
+            if abstract_text and not abstract_text.endswith(('.', '!', '?')):
+                abstract_text += '.'
+        abstract = html.escape(abstract_text)
+        
         year = patent.get('year', 'N/A')
         if year == 'N/A' or not year or year == 0:
-            # Try grant_date or publication_date
             grant_date = patent.get('grant_date', '') or patent.get('publication_date', '')
             if grant_date:
                 year = str(grant_date)[:4] if len(str(grant_date)) >= 4 else 'N/A'
             else:
                 year = 'N/A'
         else:
-            # Convert to string if it's an integer
             year = str(year) if isinstance(year, (int, float)) else year
-        # Try multiple field names for similarity score
         score = patent.get('similarity', 0)
         if score == 0:
             score = patent.get('similarity_score', 0)
@@ -87,11 +92,11 @@ def render_prior_art(patents: list, max_display: int = 10):
             st.markdown(f"**Similarity Score:** {score:.3f}")
             st.markdown(f"**Abstract:** {abstract}")
             
-            # Show full claims if available
             if patent.get('claims'):
                 st.markdown("**Claims:**")
-                for claim in patent['claims'][:3]:  # Show first 3 claims
-                    st.markdown(f"- {html.escape(claim)}")
+                for claim in patent['claims'][:3]:
+                    claim_str = str(claim) if not isinstance(claim, dict) else str(claim.get('text', claim))
+                    st.markdown(f"- {html.escape(claim_str)}")
 
 
 def render_novelty_result(result):
@@ -101,7 +106,6 @@ def render_novelty_result(result):
     similar_patents = result.similar_patents if result.similar_patents else []
     recommendation = result.recommendation if result.recommendation else ''
     
-    # Score display
     score_class = "score-high" if score < 0.3 else "score-medium" if score < 0.7 else "score-low"
     st.markdown(f"""
     <div class="score-box">
@@ -110,7 +114,6 @@ def render_novelty_result(result):
     </div>
     """, unsafe_allow_html=True)
     
-    # Recommendation
     if recommendation:
         if score < 0.3:
             st.success(f"**Recommendation:** {recommendation}")
@@ -183,11 +186,7 @@ a:hover{color:#fff}
 """, unsafe_allow_html=True)
         st.session_state['css_loaded'] = True
     
-    # Pre-load analyzer in background (optional - speeds up first query)
-    # This happens automatically on first query, but we can pre-load here
     if 'analyzer_preloaded' not in st.session_state:
-        # Don't block - let it load on first query
-        # But mark that we're ready to load
         st.session_state['analyzer_preloaded'] = False
     
     render_header()
@@ -196,7 +195,6 @@ a:hover{color:#fff}
     with st.sidebar:
         st.markdown("### Configuration")
         
-        # SerpAPI key input
         serpapi_key = st.text_input(
             "SerpAPI Key (for online search)",
             value=st.session_state.get('serpapi_key', ''),
@@ -204,20 +202,20 @@ a:hover{color:#fff}
             help="Enter your SerpAPI key to enable online patent search via Google Patents"
         )
         
-        # Update session state and environment
         if serpapi_key != st.session_state.get('serpapi_key', ''):
             st.session_state['serpapi_key'] = serpapi_key
             if serpapi_key:
                 import os
                 os.environ['SERPAPI_KEY'] = serpapi_key
-                st.success("SerpAPI key configured")
-                # Clear analyzer cache to reload with new key
+                st.success(f"SerpAPI key configured ({len(serpapi_key)} characters)")
                 load_analyzer.clear()
             else:
                 st.info("SerpAPI key removed")
                 load_analyzer.clear()
         
-        # Online search toggle
+        if st.session_state.get('serpapi_key'):
+            st.info(f"✓ SerpAPI key is set ({len(st.session_state.get('serpapi_key', ''))} characters)")
+        
         use_online = st.checkbox(
             "Enable Online Search",
             value=st.session_state.get('use_online', True),
@@ -225,7 +223,6 @@ a:hover{color:#fff}
         )
         st.session_state['use_online'] = use_online
         
-        # LLM keyword generation toggle
         use_keywords = st.checkbox(
             "Use LLM Keyword Generation",
             value=st.session_state.get('use_keywords', True),
@@ -233,13 +230,11 @@ a:hover{color:#fff}
         )
         st.session_state['use_keywords'] = use_keywords
         
-        # Clear cache button
         if st.button("Clear Cache"):
             load_analyzer.clear()
             st.session_state['analyzer_preloaded'] = False
             st.success("Cache cleared!")
     
-    # Main content
     tab1, tab2 = st.tabs(["Novelty Assessment & Prior Art Search", "Quick Search"])
     
     with tab1:
@@ -256,14 +251,14 @@ a:hover{color:#fff}
                 st.error("Please enter some text to analyze.")
             else:
                 def analyze_and_display(input_data, is_search=False):
-                    with st.status("🔍 Starting analysis...", expanded=True) as status:
+                    with st.status("Starting analysis...", expanded=True) as status:
                         log_container = st.container()
                         log_messages = []
                         
                         def update_status(message: str):
                             log_messages.append(message)
                             with log_container:
-                                for msg in log_messages[-10:]:  # Show last 10 messages
+                                for msg in log_messages[-10:]:
                                     st.text(msg)
                             status.update(label=message, state="running")
                         
@@ -271,19 +266,18 @@ a:hover{color:#fff}
                         use_online = st.session_state.get('use_online', True)
                         use_keywords = st.session_state.get('use_keywords', True)
                         
-                        update_status("📦 Loading analyzer...")
+                        update_status("Loading analyzer...")
                         analyzer = load_analyzer(
                             serpapi_key=serpapi_key if serpapi_key else None,
                             use_online=use_online,
                             use_keywords=use_keywords
                         )
                         
-                        update_status("🚀 Starting analysis...")
+                        update_status("Starting analysis...")
                         result = analyzer.analyze(input_data, status_callback=update_status)
                         
-                        status.update(label="✅ Analysis complete!", state="complete")
+                        status.update(label="Analysis complete!", state="complete")
                     
-                    # Display results
                     col1, col2 = st.columns([1, 1])
                     
                     with col1:
@@ -310,14 +304,14 @@ a:hover{color:#fff}
                 st.error("Please enter a search query.")
             else:
                 def analyze_and_display(input_data, is_search=False):
-                    with st.status("🔍 Starting search...", expanded=True) as status:
+                    with st.status("Starting search...", expanded=True) as status:
                         log_container = st.container()
                         log_messages = []
                         
                         def update_status(message: str):
                             log_messages.append(message)
                             with log_container:
-                                for msg in log_messages[-10:]:  # Show last 10 messages
+                                for msg in log_messages[-10:]:
                                     st.text(msg)
                             status.update(label=message, state="running")
                         
@@ -325,19 +319,18 @@ a:hover{color:#fff}
                         use_online = st.session_state.get('use_online', True)
                         use_keywords = st.session_state.get('use_keywords', True)
                         
-                        update_status("📦 Loading analyzer...")
+                        update_status("Loading analyzer...")
                         analyzer = load_analyzer(
                             serpapi_key=serpapi_key if serpapi_key else None,
                             use_online=use_online,
                             use_keywords=use_keywords
                         )
                         
-                        update_status("🚀 Starting search...")
+                        update_status("Starting search...")
                         result = analyzer.analyze(input_data, status_callback=update_status)
                         
-                        status.update(label="✅ Search complete!", state="complete")
+                        status.update(label="Search complete!", state="complete")
                     
-                    # Display results
                     st.markdown("### Search Results")
                     similar_patents = result.similar_patents if result.similar_patents else []
                     render_prior_art(similar_patents, max_display=20)

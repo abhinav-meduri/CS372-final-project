@@ -146,22 +146,44 @@ class PatentNoveltyNet(nn.Module):
 
 
 class PyTorchPatentClassifier:
-    """
-    PyTorch-based patent novelty classifier with modern deep learning techniques.
+    """PyTorch-based patent novelty classifier with modern deep learning techniques.
+    
+    Parameters
+    ----------
+    hidden_dims : list of int, default=[128, 64, 32]
+        Number of hidden units in each layer
+    dropout : float, default=0.3
+        Dropout probability
+    learning_rate : float, default=0.001
+        Learning rate for optimizer
+    weight_decay : float, default=1e-4
+        L2 regularization parameter
+    batch_size : int, default=256
+        Minibatch size
+    max_epochs : int, default=100
+        Maximum number of training epochs
+    patience : int, default=15
+        Number of epochs to wait before early stopping
+    use_residual : bool, default=True
+        Whether to use residual connections
+    bn_momentum : float, default=0.1
+        Batch normalization momentum
+    device : str, optional
+        Device to use ('cuda', 'mps', or 'cpu'). If None, auto-detects.
     """
     
     def __init__(
         self,
-        hidden_dims: List[int] = [128, 64, 32],
-        dropout: float = 0.3,
-        learning_rate: float = 0.001,
-        weight_decay: float = 1e-4,
-        batch_size: int = 256,
-        max_epochs: int = 100,
-        patience: int = 15,
-        use_residual: bool = True,
-        bn_momentum: float = 0.1,
-        device: str = None
+        hidden_dims=[128, 64, 32],
+        dropout=0.3,
+        learning_rate=0.001,
+        weight_decay=1e-4,
+        batch_size=256,
+        max_epochs=100,
+        patience=15,
+        use_residual=True,
+        bn_momentum=0.1,
+        device=None
     ):
         self.hidden_dims = hidden_dims
         self.dropout = dropout

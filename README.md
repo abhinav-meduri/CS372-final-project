@@ -6,7 +6,21 @@ A hybrid patent prior-art retrieval and novelty-scoring system that combines Pat
 
 This system helps researchers and inventors quickly assess the novelty of patent applications by comparing them against a corpus of 200,000 USPTO patents (2021-2025). Given a query patent (title, abstract, and claims), the system performs hybrid retrieval combining local FAISS similarity search with online Google Patents search (via SerpAPI). LLM-powered keyword extraction (Phi-3) generates optimized search terms. A trained PyTorch neural network scores each candidate based on 10 engineered features (reduced from 13 via ablation study) including embedding similarity, text overlap metrics, and metadata features. Finally, Phi-3 LLM generates human-readable explanations citing specific evidence from the prior art, helping users understand why certain patents may pose novelty concerns.
 
+## Demo
+
+<div align="center">
+  <img src="docs/demo_novelty_assessment.png" alt="Novelty Assessment Interface" width="600"/>
+  <p><em>Novelty Assessment Interface - Shows analysis results with novelty score, similar patents, and detailed explanations</em></p>
+</div>
+
+<div align="center">
+  <img src="docs/demo_analysis_pipeline.png" alt="Analysis Pipeline" width="600"/>
+  <p><em>Analysis Pipeline - Demonstrates the complete workflow from patent input to novelty assessment</em></p>
+</div>
+
 ## Quick Start
+
+For complete setup instructions, see [SETUP.md](SETUP.md).
 
 ```bash
 # 1. Clone and setup environment
@@ -18,7 +32,7 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Download required data files (see Installation section)
+# 3. Download required data files (see SETUP.md)
 # Required: patents_sampled.jsonl, embeddings, and trained models
 
 # 4. Install and start Ollama (for LLM explanations)
@@ -95,7 +109,9 @@ streamlit run app.py
    streamlit run app.py
    ```
 
-For detailed data setup and model training instructions, see `docs/project_documentation.md`.
+For detailed end-to-end setup instructions, see [SETUP.md](SETUP.md).
+
+For technical documentation, see `docs/PROJECT_DOCUMENTATION.md`.
 
 ## Video Links
 
@@ -108,27 +124,25 @@ For detailed data setup and model training instructions, see `docs/project_docum
 
 | Model | Accuracy | Precision | Recall | F1 Score | ROC-AUC |
 |-------|----------|-----------|--------|----------|---------|
-| **Ensemble Model (Best)** | **91.77%** | **92.63%** | **90.60%** | **0.9160** | **0.9716** |
+| **PyTorch Neural Network (Best)** | **91.64%** | **91.90%** | **91.16%** | **0.9153** | **0.9716** |
 | MLP Classifier | 91.48% | 93.00% | 89.54% | 0.9124 | 0.9713 |
-| PyTorch Neural Network | 90.71% | 93.23% | 87.61% | 0.9033 | 0.9682 |
 | Logistic Regression | 90.93% | 92.45% | 88.99% | 0.9063 | 0.9674 |
 | Cosine Similarity (heuristic) | 84.27% | 81.23% | 86.42% | 0.8353 | 0.9170 |
 | Random Guessing | 49.78% | 49.80% | 49.80% | 0.4950 | 0.5032 |
 | Majority Class | 50.47% | 0.00% | 0.00% | 0.0000 | 0.5000 |
 
-**Note:** The Ensemble Model combines MLP and PyTorch classifiers using stacking with probability calibration, achieving the best overall performance.
+**Note:** The PyTorch Neural Network achieves the best overall performance with 10 engineered features.
 
 ### Individual Model Details
 
-#### Ensemble Model (Production - Best Performing)
+#### PyTorch Neural Network (Production - Best Performing)
 | Metric | Test Set |
 |--------|----------|
-| **Accuracy** | 91.77% |
-| **Precision** | 92.63% |
-| **Recall** | 90.60% |
-| **F1 Score** | 0.9160 |
+| **Accuracy** | 91.64% |
+| **Precision** | 91.90% |
+| **Recall** | 91.16% |
+| **F1 Score** | 0.9153 |
 | **ROC-AUC** | 0.9716 |
-| **Brier Score** | 0.0625 |
 
 #### MLP Classifier
 | Metric | Test Set |
@@ -140,14 +154,6 @@ For detailed data setup and model training instructions, see `docs/project_docum
 | **ROC-AUC** | 0.9713 |
 | **Brier Score** | 0.0639 |
 
-#### PyTorch Neural Network
-| Metric | Test Set |
-|--------|----------|
-| **Accuracy** | 90.71% |
-| **Precision** | 93.23% |
-| **Recall** | 87.61% |
-| **F1 Score** | 0.9033 |
-| **ROC-AUC** | 0.9682 |
 
 ### Ablation Study and Feature Selection
 
@@ -188,10 +194,13 @@ Based on the ablation study, we systematically evaluated each feature group's co
 
 ### Model Architecture Details
 
-**Ensemble Model:**
-- Base Models: MLP Classifier (hidden_layer_sizes=(64,), alpha=1e-5, learning_rate=0.005) + PyTorch Neural Network (hidden_dims=[128, 64, 32], dropout=0.3, batch normalization)
-- Meta-learner: Logistic Regression with probability calibration
-- Method: Stacking with CalibratedClassifierCV
+**PyTorch Neural Network (Production Model):**
+- Architecture: Multi-layer perceptron with residual connections
+- Hidden Layers: [256, 128] neurons
+- Regularization: Dropout (0.3), Batch Normalization, L2 weight decay (1e-5)
+- Learning Rate: 0.002
+- Batch Size: 256
+- Features: 10 engineered features (embedding similarity, text overlap, metadata)
 
 **MLP Classifier:**
 - Architecture: Single hidden layer (64 neurons)
@@ -200,8 +209,8 @@ Based on the ablation study, we systematically evaluated each feature group's co
 - Optimizer: Adam
 
 **PyTorch Neural Network:**
-- Architecture: [128, 64, 32] with residual connections
-- Regularization: Dropout (0.3), Batch Normalization, L2 weight decay (1e-4)
+- Architecture: [256, 128] with residual connections
+- Regularization: Dropout (0.3), Batch Normalization, L2 weight decay (1e-5)
 - Learning Rate: 0.001
 - Optimizer: AdamW
 
@@ -211,8 +220,14 @@ Based on the ablation study, we systematically evaluated each feature group's co
 - **Batch Throughput:** 1.4M+ predictions/second
 - **LLM Explanation Generation:** ~30-60 seconds via Ollama
 
+## Documentation
+
+- **[SETUP.md](SETUP.md)** - Complete end-to-end installation and setup instructions
+- **[ATTRIBUTION.md](ATTRIBUTION.md)** - Detailed attributions of all data sources, models, and AI assistance
+- **docs/PROJECT_DOCUMENTATION.md** - Technical documentation and architecture details
+- **notebooks/pipeline.ipynb** - Example usage and pipeline demonstration
+
 ## Individual Contributions
 
 *Individual project - single contributor*
-
 

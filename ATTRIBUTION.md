@@ -42,11 +42,13 @@ This document details all external resources, datasets, libraries, and AI assist
 | spaCy | 3.6+ | MIT | Text preprocessing |
 | NLTK | 3.8+ | Apache 2.0 | Tokenization, stopwords |
 
-### LLM APIs
-| Service | Usage |
-|---------|-------|
-| OpenAI GPT-4 | Explanation generation |
-| Anthropic Claude | Alternative explanation generation |
+### LLM Integration
+| Service/Model | Usage | License |
+|--------------|-------|---------|
+| Ollama | Local LLM runtime for Phi-3 | MIT |
+| Phi-3 (Microsoft) | Patent explanation generation | MIT |
+| OpenAI GPT-4 | Alternative explanation generation (not used in production) | Commercial |
+| Anthropic Claude | Alternative explanation generation (not used in production) | Commercial |
 
 ### Web Development
 | Library | Version | License | Usage |
@@ -83,6 +85,12 @@ This document details all external resources, datasets, libraries, and AI assist
   - Documentation drafting
   - Debugging support
 - **Extent:** AI-assisted development with human review and modification
+
+### Online Search APIs
+| Service | Usage | License |
+|---------|-------|---------|
+| SerpAPI | Google Patents search integration | Commercial (free tier available) |
+| Google Patents | Patent database search | Public |
 
 ### Specific AI-Generated Components
 1. Project structure and file organization

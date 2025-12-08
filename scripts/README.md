@@ -12,17 +12,22 @@ Scripts are organized into subfolders by purpose:
 - `extract_citation_pairs.py` - Extract citation pairs from PatentsView data
 - `generate_training_pairs.py` - Generate positive/negative training pairs
 - `sample_diverse_patents.py` - Sample diverse patents for dataset
-- `train_phi3_lora.py` - Fine-tune Phi-3 with LoRA (experimental)
 
 ## evaluation/
-- `run_pytorch_ablation.py` - Ablation study for PyTorch model
-- `mlp_tuning.py` - Grid search for MLP hyperparameters
-- `nn_tuning.py` - Grid search for PyTorch neural network hyperparameters
+- `tuning/mlp_tuning.py` - Grid search for MLP hyperparameters
+- `tuning/nn_tuning.py` - Grid search for PyTorch neural network hyperparameters
 - `run_ablation_study.py` - Ablation study for both MLP and PyTorch models
 - `plots/plot_ablation.py` - Generate side-by-side MLP vs PyTorch ablation comparison plot
+- `plots/plot_baseline_comparison.py` - Generate baseline comparison plot
+- `plots/plot_hard_negatives.py` - Generate hard negatives analysis plots
+- `plots/plot_pytorch.py` - Generate PyTorch model plots
 
 ## analysis/
-- `analyze_negatives.py` - Analyze negative pairs and generate hard negatives
+- `hard_negatives/analyze_hard_negatives.py` - Test model on hard negative pairs
+- `hard_negatives/generate_test_hard_negatives.py` - Generate hard negatives for test set
+- `hard_negatives/analyze_negatives.py` - Analyze negative pairs and generate hard negatives
+- `edge_cases/edge_case_analysis.py` - Categorize test cases (easy/hard/boundary)
+- `sensitivity/length_sensitivity.py` - Analyze model sensitivity to input text length
 
 ## Usage
 

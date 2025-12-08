@@ -338,7 +338,7 @@ class PatentAnalyzer:
         
         if status_callback:
             status_callback("Searching local database (200K patents)...")
-        query_embedding = self.st_model.encode(query_text)
+        query_embedding = self.st_model.encode(query_text, show_progress_bar=False)
         local_similar = self._find_similar(query_embedding, top_k=10, status_callback=status_callback)
         if status_callback:
             status_callback(f"Found {len(local_similar)} local patents")
@@ -429,7 +429,7 @@ class PatentAnalyzer:
                         embed_text = query_patent.get('abstract', '') or query_patent.get('title', '') or parsed.raw_text or ''
                         embed_text = embed_text[:500] if embed_text else ''
                         if embed_text:
-                            query_patent['embedding'] = self.st_model.encode(embed_text)
+                            query_patent['embedding'] = self.st_model.encode(embed_text, show_progress_bar=False)
                     
                     feature_vector = self.feature_extractor.extract_features(
                         query_patent,
@@ -512,7 +512,7 @@ class PatentAnalyzer:
         
         if status_callback:
             status_callback("Searching local database...")
-        query_embedding = self.st_model.encode(query)
+        query_embedding = self.st_model.encode(query, show_progress_bar=False)
         local_similar = self._find_similar(query_embedding, top_k=20, status_callback=status_callback)
         
         online_patents = []

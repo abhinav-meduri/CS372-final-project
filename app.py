@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 import json
 import time
+from dataclasses import asdict
 
 _project_root = Path(__file__).parent
 if str(_project_root) not in sys.path:
@@ -486,30 +487,66 @@ a:hover{color:#fff}
                     result = analyze_and_display(idea_text)
                     if result:
                         if result.success:
-                            print(f"DEBUG: Storing result with {len(result.similar_patents) if result.similar_patents else 0} similar patents")
-                            st.session_state['analysis_result'] = result
-                            st.session_state['analysis_input'] = idea_text
+                            similar_count = len(result.similar_patents) if result.similar_patents else 0
+                            print(f"DEBUG: Storing result with {similar_count} similar patents")
+                            print(f"DEBUG: Result type: {type(result)}")
+                            print(f"DEBUG: Result has similar_patents: {hasattr(result, 'similar_patents')}")
+                            
+                            # Store result in session state - ensure it's properly stored
+                            try:
+                                st.session_state['analysis_result'] = result
+                                st.session_state['analysis_input'] = idea_text
+                                print(f"DEBUG: Result stored successfully")
+                                
+                                # Verify it was stored
+                                if 'analysis_result' in st.session_state:
+                                    stored = st.session_state['analysis_result']
+                                    print(f"DEBUG: Verification - stored result type: {type(stored)}")
+                                    print(f"DEBUG: Verification - stored result success: {getattr(stored, 'success', 'N/A')}")
+                                
+                                # Force rerun to display results
+                                st.rerun()
+                            except Exception as store_error:
+                                st.error(f"Failed to store result: {str(store_error)}")
+                                import traceback
+                                traceback.print_exc()
                         else:
                             st.error(f"Analysis failed: {result.error if result.error else 'Unknown error'}")
                             if result.error:
                                 print(f"ERROR: {result.error}")
                     else:
                         st.error("Analysis returned no result")
+                        print("ERROR: analyze_and_display returned None")
                 except Exception as e:
                     st.error(f"Error during analysis: {str(e)}")
                     import traceback
                     print(f"EXCEPTION: {e}")
                     traceback.print_exc()
-                st.rerun()
+                    # Don't rerun on error - let user see the error message
         
-        if 'analysis_result' in st.session_state and st.session_state.get('analysis_result'):
-            result = st.session_state['analysis_result']
+        # Display stored results (after rerun from button click)
+        if 'analysis_result' in st.session_state:
+            stored_result = st.session_state.get('analysis_result')
             input_text = st.session_state.get('analysis_input', '')
             
-            if result:
+            print(f"DEBUG: Checking for stored result in session state")
+            print(f"DEBUG: analysis_result key exists: {'analysis_result' in st.session_state}")
+            print(f"DEBUG: Stored result is None: {stored_result is None}")
+            print(f"DEBUG: Stored result type: {type(stored_result) if stored_result else 'N/A'}")
+            
+            if stored_result:
+                result = stored_result
                 try:
-                    similar_patents = result.similar_patents if result.similar_patents else []
+                    # Safely access similar_patents
+                    if hasattr(result, 'similar_patents'):
+                        similar_patents = result.similar_patents if result.similar_patents else []
+                    else:
+                        similar_patents = []
+                        print(f"WARNING: Result missing similar_patents attribute")
+                    
                     print(f"DEBUG: Retrieved result with {len(similar_patents)} similar patents")
+                    print(f"DEBUG: Result success: {getattr(result, 'success', 'N/A')}")
+                    print(f"DEBUG: Result novelty_score: {getattr(result, 'novelty_score', 'N/A')}")
                     
                     col1, col2 = st.columns([1, 1])
                     
@@ -528,6 +565,10 @@ a:hover{color:#fff}
                     # Clear the broken result
                     if 'analysis_result' in st.session_state:
                         del st.session_state['analysis_result']
+            else:
+                print(f"DEBUG: Result is None or falsy")
+                if 'analysis_result' in st.session_state:
+                    del st.session_state['analysis_result']
     
     with tab2:
         st.markdown("### Search Prior Art")

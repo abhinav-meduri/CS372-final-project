@@ -9,12 +9,12 @@ This system helps researchers and inventors quickly assess the novelty of patent
 ## Demo
 
 <div align="center">
-  <img src="docs/demo_novelty_assessment.png" alt="Novelty Assessment Interface" width="600"/>
+  <img src="docs/Screenshot%202025-12-08%20at%201.13.20%20AM.png" alt="Novelty Assessment Interface" width="600"/>
   <p><em>Novelty Assessment Interface - Shows analysis results with novelty score, similar patents, and detailed explanations</em></p>
 </div>
 
 <div align="center">
-  <img src="docs/demo_analysis_pipeline.png" alt="Analysis Pipeline" width="600"/>
+  <img src="docs/Screenshot%202025-12-08%20at%201.16.02%20AM.png" alt="Analysis Pipeline" width="600"/>
   <p><em>Analysis Pipeline - Demonstrates the complete workflow from patent input to novelty assessment</em></p>
 </div>
 

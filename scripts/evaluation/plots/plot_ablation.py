@@ -12,7 +12,6 @@ import numpy as np
 project_root = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# Set style - neutral and professional
 plt.style.use('default')
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Arial', 'DejaVu Sans', 'Helvetica']
@@ -20,15 +19,14 @@ plt.rcParams['axes.grid'] = True
 plt.rcParams['grid.alpha'] = 0.3
 plt.rcParams['grid.linestyle'] = '--'
 
-# Output directory
-output_dir = project_root / 'results' / 'plots' / 'ablation'
+output_dir = project_root/'results'/'plots'/ 'ablation'
 output_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_model_architecture():
     """Load model architecture information."""
     mlp_arch = "MLP: [64]"
-    pytorch_arch = "PyTorch: [128, 64, 32]"
+    pytorch_arch = "PyTorch: [256, 128]"
     
     # Try to load from metadata
     mlp_metadata_path = project_root / 'models' / 'mlp' / 'metadata.json'
@@ -38,12 +36,13 @@ def get_model_architecture():
             hidden = mlp_meta.get('hidden_layer_sizes', [64])
             mlp_arch = f"MLP: {hidden}"
     
-    pytorch_results_path = project_root / 'models' / 'pytorch_nn' / 'training_results.json'
-    if pytorch_results_path.exists():
-        with open(pytorch_results_path, 'r') as f:
+    # Check pytorch metrics for current architecture
+    pytorch_metrics_path = project_root / 'results' / 'pytorch_nn' / 'pytorch_metrics.json'
+    if pytorch_metrics_path.exists():
+        with open(pytorch_metrics_path, 'r') as f:
             pytorch_data = json.load(f)
-            # PyTorch architecture is typically [128, 64, 32] based on training
-            pytorch_arch = "PyTorch: [128, 64, 32]"
+            hidden_dims = pytorch_data.get('hyperparameters', {}).get('hidden_dims', [256, 128])
+            pytorch_arch = f"PyTorch: {hidden_dims}"
     
     return mlp_arch, pytorch_arch
 
@@ -52,7 +51,7 @@ def regenerate_ablation_plot():
     """Generate side-by-side ablation study plot comparing MLP and PyTorch."""
     
     # Load ablation results
-    ablation_path = project_root / 'results' / 'ablation_study' / 'ablation_results.json'
+    ablation_path = project_root/'results'/'analysis'/'ablation_study'/'ablation_results.json'
     
     if not ablation_path.exists():
         print(f"Error: Ablation results not found at {ablation_path}")
@@ -89,15 +88,11 @@ def regenerate_ablation_plot():
     # Create figure with side-by-side subplots
     fig = plt.figure(figsize=(16, 10))
     
-    # Define neutral color scheme
+    # Colors
     base_color = '#4A90A4'  # Neutral teal-blue
     highlight_color = '#2C5F7D'  # Darker blue for "All Features"
     light_color = '#7FB3C3'  # Lighter blue for others
     
-    # Create 3 rows x 2 columns (MLP left, PyTorch right)
-    # Row 1: Accuracy
-    # Row 2: ROC-AUC
-    # Row 3: F1 Score
     
     metrics_data = [
         ('Accuracy', mlp_accuracies, pytorch_accuracies, (0.84, 0.92)),
@@ -163,11 +158,7 @@ def regenerate_ablation_plot():
 
 
 if __name__ == '__main__':
-    print("="*70)
     print("GENERATING ABLATION STUDY COMPARISON PLOT")
-    print("="*70)
     regenerate_ablation_plot()
-    print("="*70)
     print("COMPLETE")
-    print("="*70)
 

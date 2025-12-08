@@ -1,7 +1,7 @@
 """
 Generate baseline comparison plot.
 
-Compares our models (MLP, PyTorch, Ensemble) against baseline methods:
+Compares our models (MLP, PyTorch) against baseline methods:
 - Random Guessing (50/50)
 - Majority Class Classifier
 - Logistic Regression
@@ -32,9 +32,7 @@ except:
 output_dir = project_root / 'results' / 'plots' / 'baseline'
 output_dir.mkdir(parents=True, exist_ok=True)
 
-print("="*70)
 print("BASELINE COMPARISON ANALYSIS")
-print("="*70)
 
 # Load test data
 print("\n1. Loading test data...")
@@ -53,7 +51,6 @@ print(f"   Features: {X_test_10feat.shape[1]} (10 features after removal)")
 print("\n2. Loading model metrics...")
 mlp_metrics = json.load(open(project_root / 'results' / 'mlp' / 'mlp_metrics.json'))
 pytorch_metrics = json.load(open(project_root / 'results' / 'pytorch_nn' / 'pytorch_metrics.json'))
-ensemble_metrics = json.load(open(project_root / 'results' / 'ensemble' / 'ensemble_metrics.json'))
 
 # Baseline 1: Random Guessing (50/50)
 print("\n3. Evaluating baseline methods...")
@@ -154,18 +151,11 @@ results = {
         'accuracy': pytorch_metrics['test']['accuracy'],
         'roc_auc': pytorch_metrics['test']['roc_auc'],
         'f1': pytorch_metrics['test']['f1']
-    },
-    'Ensemble Model': {
-        'accuracy': ensemble_metrics['accuracy'],
-        'roc_auc': ensemble_metrics['roc_auc'],
-        'f1': ensemble_metrics['f1']
     }
 }
 
 # Print results
-print("\n" + "="*70)
 print("RESULTS SUMMARY")
-print("="*70)
 print(f"{'Method':<30} {'Accuracy':<12} {'ROC-AUC':<12} {'F1 Score':<12}")
 print("-"*70)
 for method, metrics in results.items():
@@ -193,8 +183,6 @@ for m in methods:
         colors.append(base_color)  # Neutral teal-blue
     elif m == 'PyTorch Neural Net':
         colors.append(highlight_color)  # Darker blue
-    else:  # Ensemble
-        colors.append(highlight_color)  # Darker blue (best model)
 
 # Plot 1: Accuracy
 ax = axes[0]
@@ -257,7 +245,5 @@ with open(results_path, 'w') as f:
     json.dump(results, f, indent=2, default=str)
 print(f"✓ Results saved to: {results_path}")
 
-print("\n" + "="*70)
 print("BASELINE COMPARISON COMPLETE")
-print("="*70)
 

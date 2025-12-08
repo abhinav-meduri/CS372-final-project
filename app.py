@@ -91,7 +91,8 @@ def render_prior_art(patents: list, max_display: int = 10, context: str = "defau
     
     sorted_patents = patents.copy()
     if "Similarity" in sort_by:
-        sorted_patents.sort(key=lambda x: x.get('similarity_score', x.get('similarity', 0)), 
+        # Use similarity field for sorting
+        sorted_patents.sort(key=lambda x: x.get('similarity', 0) or x.get('similarity_score', 0), 
                           reverse="High" in sort_by)
     elif "Year" in sort_by:
         sorted_patents.sort(key=lambda x: int(x.get('year', 0)) if str(x.get('year', 'N/A')).isdigit() else 0,
@@ -143,9 +144,8 @@ def render_prior_art(patents: list, max_display: int = 10, context: str = "defau
                 year = 'N/A'
         else:
             year = str(year) if isinstance(year, (int, float)) else year
-        score = patent.get('similarity', 0)
-        if score == 0:
-            score = patent.get('similarity_score', 0)
+        # Get similarity score
+        similarity = patent.get('similarity', 0) or patent.get('similarity_score', 0)
         
         source_badge = ""
         if patent.get('source') == 'online' or 'google' in str(patent_id).lower() or any(x in str(patent_id) for x in ['CN', 'JP', 'EP', 'WO']):
@@ -153,12 +153,14 @@ def render_prior_art(patents: list, max_display: int = 10, context: str = "defau
         else:
             source_badge = " [Local]"
         
-        with st.expander(f"**{title}** (Patent {patent_id}, {year}) - Similarity: {score:.3f}{source_badge}", expanded=False):
+        with st.expander(f"**{title}** (Patent {patent_id}, {year}) - Similarity: {similarity:.3f}{source_badge}", expanded=False):
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown(f"**Patent ID:** {patent_id}")
                 st.markdown(f"**Year:** {year}")
-                st.markdown(f"**Similarity Score:** {score:.3f}")
+                st.markdown(f"**Similarity:** {similarity:.3f}")
+                if not similarity:
+                    st.markdown(f"**Embedding Similarity:** {display_score:.3f}")
             with col2:
                 if patent.get('cpc_code'):
                     st.markdown(f"**CPC Code:** {patent.get('cpc_code')}")
@@ -197,7 +199,12 @@ def generate_report_text(result, input_text: str = ""):
     lines.append("NOVELTY ASSESSMENT:")
     lines.append("-" * 80)
     lines.append(f"Novelty Score: {score:.4f}")
-    lines.append(f"Assessment: {'Likely Novel' if score < 0.5 else 'Potential Prior Art Found'}")
+    # Remove hard categories - use continuous score with context
+    assessment = result.assessment if result.assessment else None
+    if assessment:
+        lines.append(f"Novelty Score: {score:.3f} ({assessment})")
+    else:
+        lines.append(f"Novelty Score: {score:.3f}")
     
     if result.recommendation:
         lines.append(f"Recommendation: {result.recommendation}")
@@ -243,12 +250,11 @@ def render_novelty_result(result, input_text: str = ""):
     explanation = result.explanation if result.explanation else 'No explanation available.'
     similar_patents = result.similar_patents if result.similar_patents else []
     recommendation = result.recommendation if result.recommendation else ''
+    assessment = result.assessment if result.assessment else None
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Novelty Score", f"{score:.3f}", 
-                 delta="Novel" if score > 0.5 else "Not Novel", 
-                 delta_color="normal" if score > 0.5 else "inverse")
+        st.metric("Novelty Score", f"{score:.3f}")
     with col2:
         st.metric("Similar Patents", len(similar_patents))
     with col3:
@@ -256,31 +262,21 @@ def render_novelty_result(result, input_text: str = ""):
         local_count = len(similar_patents) - online_count
         st.metric("Search Sources", f"{local_count} local, {online_count} online")
     
-    score_class = "score-low" if score < 0.3 else "score-medium" if score < 0.7 else "score-high"
-    
-    if score > 0.7:
-        interpretation = "Highly Novel"
-        similarity_pct = f"{(1-score)*100:.0f}%"
-    elif score > 0.5:
-        interpretation = "Moderately Novel"
-        similarity_pct = f"{(1-score)*100:.0f}%"
-    elif score > 0.3:
-        interpretation = "Low Novelty"
-        similarity_pct = f"{(1-score)*100:.0f}%"
-    else:
-        interpretation = "Not Novel"
-        similarity_pct = f"{(1-score)*100:.0f}%"
+    # Score visualization with assessment
+    score_class = "score-high" if score > 0.7 else "score-medium" if score > 0.5 else "score-low"
+    similarity_pct = f"{(1-score)*100:.0f}%"
+    assessment_text = f"<div style='margin-top: 0.5rem; font-size: 1rem; font-weight: 600; color: {'#4CAF50' if score > 0.7 else '#FFA726' if score > 0.5 else '#EF5350'};'>{assessment}</div>" if assessment else ""
     
     st.markdown(f"""
     <div class="score-box">
         <div class="score-value {score_class}">{score:.2f}</div>
         <div class="score-label">Novelty Score</div>
-        <div class="score-interpretation" style="margin-top: 0.5rem; font-size: 1rem; color: #aaa;">{interpretation}</div>
-        <div class="score-similarity" style="margin-top: 0.25rem; font-size: 0.875rem; color: #888;">Similarity to Prior Art: {similarity_pct}</div>
+        {assessment_text}
+        <div class="score-similarity" style="margin-top: 0.5rem; font-size: 0.875rem; color: #888;">Similarity to Prior Art: {similarity_pct}</div>
     </div>
     <div style="margin-top: 0.5rem; padding: 0.75rem; background: #252525; border-radius: 4px; font-size: 0.85rem; color: #aaa;">
         <strong>Scale:</strong> 0.0 = Not Novel (100% similar to prior art) | 1.0 = Highly Novel (0% similar to prior art)<br>
-        <strong>Your Score:</strong> {score:.2f} means your patent is {similarity_pct} similar to prior art, indicating {interpretation.lower()}.
+        <strong>Your Score:</strong> {score:.2f} means your patent is {similarity_pct} similar to prior art.
     </div>
     """, unsafe_allow_html=True)
     
@@ -302,14 +298,16 @@ def render_novelty_result(result, input_text: str = ""):
             mime="text/plain"
         )
     with col2:
-        report_json = json.dumps({
+        report_data = {
             "novelty_score": score,
-            "assessment": "Likely Novel" if score < 0.5 else "Potential Prior Art Found",
             "recommendation": recommendation,
             "explanation": explanation,
             "similar_patents": similar_patents,
             "search_metadata": result.search_metadata or {}
-        }, indent=2)
+        }
+        if assessment:
+            report_data["assessment"] = assessment
+        report_json = json.dumps(report_data, indent=2)
         st.download_button(
             label="Download JSON",
             data=report_json,
@@ -484,25 +482,52 @@ a:hover{color:#fff}
                     
                     return result
                     
-                result = analyze_and_display(idea_text)
-                st.session_state['analysis_result'] = result
-                st.session_state['analysis_input'] = idea_text
+                try:
+                    result = analyze_and_display(idea_text)
+                    if result:
+                        if result.success:
+                            print(f"DEBUG: Storing result with {len(result.similar_patents) if result.similar_patents else 0} similar patents")
+                            st.session_state['analysis_result'] = result
+                            st.session_state['analysis_input'] = idea_text
+                        else:
+                            st.error(f"Analysis failed: {result.error if result.error else 'Unknown error'}")
+                            if result.error:
+                                print(f"ERROR: {result.error}")
+                    else:
+                        st.error("Analysis returned no result")
+                except Exception as e:
+                    st.error(f"Error during analysis: {str(e)}")
+                    import traceback
+                    print(f"EXCEPTION: {e}")
+                    traceback.print_exc()
                 st.rerun()
         
         if 'analysis_result' in st.session_state and st.session_state.get('analysis_result'):
             result = st.session_state['analysis_result']
             input_text = st.session_state.get('analysis_input', '')
             
-            col1, col2 = st.columns([1, 1])
-            
-            with col1:
-                st.markdown("### Novelty Assessment")
-                render_novelty_result(result, input_text)
-            
-            with col2:
-                st.markdown("### Similar Patents Found")
-                similar_patents = result.similar_patents if result.similar_patents else []
-                render_prior_art(similar_patents, context="novelty")
+            if result:
+                try:
+                    similar_patents = result.similar_patents if result.similar_patents else []
+                    print(f"DEBUG: Retrieved result with {len(similar_patents)} similar patents")
+                    
+                    col1, col2 = st.columns([1, 1])
+                    
+                    with col1:
+                        st.markdown("### Novelty Assessment")
+                        render_novelty_result(result, input_text)
+                    
+                    with col2:
+                        st.markdown("### Similar Patents Found")
+                        render_prior_art(similar_patents, context="novelty")
+                except Exception as e:
+                    st.error(f"Error displaying results: {str(e)}")
+                    import traceback
+                    print(f"EXCEPTION in display: {e}")
+                    traceback.print_exc()
+                    # Clear the broken result
+                    if 'analysis_result' in st.session_state:
+                        del st.session_state['analysis_result']
     
     with tab2:
         st.markdown("### Search Prior Art")
@@ -550,8 +575,17 @@ a:hover{color:#fff}
                     
                     return result
                 
-                result = analyze_and_display(search_query, is_search=True)
-                st.session_state['search_result'] = result
+                try:
+                    result = analyze_and_display(search_query, is_search=True)
+                    if result:
+                        st.session_state['search_result'] = result
+                    else:
+                        st.error("Search returned no result")
+                except Exception as e:
+                    st.error(f"Error during search: {str(e)}")
+                    import traceback
+                    print(f"EXCEPTION: {e}")
+                    traceback.print_exc()
                 st.rerun()
         
         if 'search_result' in st.session_state and st.session_state.get('search_result'):

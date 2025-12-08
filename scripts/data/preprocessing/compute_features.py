@@ -139,9 +139,7 @@ def save_features(
 
 
 def main():
-    print("="*60)
     print("FEATURE COMPUTATION PIPELINE")
-    print("="*60)
     
     # Create output directory
     output_dir = Path('data/features')
@@ -190,9 +188,7 @@ def main():
     with open(output_dir / 'feature_names.json', 'w') as f:
         json.dump(extractor.FEATURE_NAMES, f, indent=2)
     
-    print("\n" + "="*60)
     print("FEATURE COMPUTATION COMPLETE")
-    print("="*60)
     
     # Summary statistics
     for split, fvs in all_feature_vectors.items():

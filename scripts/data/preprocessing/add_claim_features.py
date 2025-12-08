@@ -112,9 +112,7 @@ def compute_claim_similarity(emb1: np.ndarray, emb2: np.ndarray) -> float:
 
 
 def main():
-    print("="*60)
     print("FAST CLAIM FEATURE COMPUTATION")
-    print("="*60)
     
     # Load patents
     patents = load_patents()
@@ -150,7 +148,6 @@ def main():
     all_names = old_names + [new_feature_name]
     
     for split in ['train', 'val', 'test']:
-        print(f"\n{'='*40}")
         print(f"Processing {split}...")
         
         # Load existing features
@@ -192,7 +189,6 @@ def main():
         json.dump(all_names, f, indent=2)
     
     # Process hard negatives
-    print(f"\n{'='*40}")
     print("Processing hard negatives...")
     
     # Load doc embeddings for other features
@@ -230,9 +226,7 @@ def main():
     X_hard = np.array(hard_features)
     
     # Train improved model
-    print(f"\n{'='*60}")
     print("TRAINING IMPROVED MODEL")
-    print("="*60)
     
     X_train = np.load(features_dir / 'train_features_v2.X.npy')
     y_train = np.load(features_dir / 'train_features_v2.y.npy')
@@ -264,9 +258,7 @@ def main():
     clf.fit(X_train_aug, y_train_aug, X_val, y_val, all_names)
     
     # Evaluate
-    print("\n" + "="*60)
     print("RESULTS")
-    print("="*60)
     
     test_metrics = clf.evaluate(X_test, y_test)
     print(f"\nStandard Test Set:")
@@ -291,9 +283,7 @@ def main():
     # Save
     clf.save('models')
     
-    print("\n" + "="*60)
     print("COMPLETE")
-    print("="*60)
 
 
 if __name__ == "__main__":

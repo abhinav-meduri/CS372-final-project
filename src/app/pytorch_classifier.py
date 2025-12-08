@@ -1,12 +1,5 @@
 """
-PyTorch Neural Network Classifier for Patent Novelty
-
-Features:
-- Dropout layers for regularization
-- Batch normalization for training stability
-- Residual connections for better gradient flow
-- Learning rate scheduling
-- Early stopping
+PyTorch Neural Network Classifier for Patent Novelty (Currently Using)
 """
 
 import torch
@@ -17,7 +10,8 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, confusion_matrix
+    roc_auc_score, confusion_matrix, precision_recall_curve,
+    average_precision_score, auc, brier_score_loss
 )
 from pathlib import Path
 import json
@@ -150,13 +144,13 @@ class PyTorchPatentClassifier:
     
     Parameters
     ----------
-    hidden_dims : list of int, default=[128, 64, 32]
+    hidden_dims : list of int, default=[256, 128]
         Number of hidden units in each layer
     dropout : float, default=0.3
         Dropout probability
-    learning_rate : float, default=0.001
+    learning_rate : float, default=0.002
         Learning rate for optimizer
-    weight_decay : float, default=1e-4
+    weight_decay : float, default=1e-05
         L2 regularization parameter
     batch_size : int, default=256
         Minibatch size
@@ -174,10 +168,10 @@ class PyTorchPatentClassifier:
     
     def __init__(
         self,
-        hidden_dims=[128, 64, 32],
+        hidden_dims=[256, 128],
         dropout=0.3,
-        learning_rate=0.001,
-        weight_decay=1e-4,
+        learning_rate=0.002,
+        weight_decay=1e-05,
         batch_size=256,
         max_epochs=100,
         patience=15,
@@ -211,7 +205,7 @@ class PyTorchPatentClassifier:
         self.training_history = {"train_loss": [], "val_loss": [], "val_acc": []}
         self.feature_names = None
         
-        logger.info(f"PyTorch Classifier initialized (device: {self.device})")
+        logger.info(f"Initialized (device: {self.device})")
     
     def _create_dataloaders(
         self,
@@ -297,11 +291,7 @@ class PyTorchPatentClassifier:
             X_train_scaled, y_train, X_val_scaled, y_val
         )
         
-        logger.info(f"Training PyTorch model...")
-        logger.info(f"  Architecture: {self.hidden_dims}")
-        logger.info(f"  Dropout: {self.dropout}")
-        logger.info(f"  Residual connections: {self.use_residual}")
-        logger.info(f"  Mixup augmentation: {use_mixup}")
+        logger.info(f"Training: dims={self.hidden_dims}, dropout={self.dropout}, mixup={use_mixup}")
         
         best_val_loss = float('inf')
         patience_counter = 0
@@ -374,16 +364,7 @@ class PyTorchPatentClassifier:
                     patience_counter += 1
                 
                 if (epoch + 1) % 5 == 0:
-                    logger.info(
-                        f"Epoch {epoch+1}/{self.max_epochs} - "
-                        f"Train Loss: {avg_train_loss:.4f}, "
-                        f"Val Loss: {avg_val_loss:.4f}, "
-                        f"Val Acc: {val_acc:.4f}"
-                    )
-                
-                if patience_counter >= self.patience:
-                    logger.info(f"Early stopping at epoch {epoch+1}")
-                    break
+                    logger.info(f"Epoch {epoch+1}: Train={avg_train_loss:.4f}, Val={avg_val_loss:.4f}, Acc={val_acc:.4f}")
                 
                 if patience_counter >= self.patience:
                     logger.info(f"Early stopping at epoch {epoch+1}")
@@ -393,12 +374,11 @@ class PyTorchPatentClassifier:
         if best_state is not None:
             self.model.load_state_dict(best_state)
         
-        logger.info("Training complete!")
+        logger.info("Training complete")
         
         return self.training_history
     
     def predict_proba(self, X):
-        """Predict probabilities for each row in X for each class"""
         """Predict probabilities."""
         self.model.eval()
         X_scaled = self.scaler.transform(X)
@@ -410,7 +390,6 @@ class PyTorchPatentClassifier:
         return np.hstack([1 - probs, probs])
     
     def predict(self, X):
-        """Predict class for each row in X"""
         """Predict classes."""
         probs = self.predict_proba(X)[:, 1]
         return (probs > 0.5).astype(int)
@@ -420,14 +399,49 @@ class PyTorchPatentClassifier:
         y_pred = self.predict(X)
         y_proba = self.predict_proba(X)[:, 1]
         
-        return {
-            "accuracy": accuracy_score(y, y_pred),
-            "precision": precision_score(y, y_pred),
-            "recall": recall_score(y, y_pred),
-            "f1": f1_score(y, y_pred),
-            "roc_auc": roc_auc_score(y, y_proba),
+        metrics = {
+            "accuracy": float(accuracy_score(y, y_pred)),
+            "precision": float(precision_score(y, y_pred)),
+            "recall": float(recall_score(y, y_pred)),
+            "f1": float(f1_score(y, y_pred)),
+            "roc_auc": float(roc_auc_score(y, y_proba)),
             "confusion_matrix": confusion_matrix(y, y_pred).tolist()
         }
+        
+        if len(np.unique(y)) > 1:
+            precision_vals, recall_vals, _ = precision_recall_curve(y, y_proba)
+            metrics['pr_auc'] = float(auc(recall_vals, precision_vals))
+            metrics['average_precision'] = float(average_precision_score(y, y_proba))
+        else:
+            metrics['pr_auc'] = 0.0
+            metrics['average_precision'] = 0.0
+        
+        metrics['brier_score'] = float(brier_score_loss(y, y_proba))
+        
+        n_bins = 10
+        bin_edges = np.linspace(0, 1, n_bins + 1)
+        ece_total = 0.0
+        total_count = 0
+        calibration_bins = []
+        for i in range(n_bins):
+            lo, hi = bin_edges[i], bin_edges[i + 1]
+            mask = (y_proba >= lo) & (y_proba < hi if i < n_bins - 1 else y_proba <= hi)
+            if mask.sum() == 0:
+                calibration_bins.append({"bin": i, "range": [float(lo), float(hi)], "count": 0})
+                continue
+            p_hat = float(y_proba[mask].mean())
+            p_true = float(y[mask].mean())
+            count = int(mask.sum())
+            calibration_bins.append({
+                "bin": i, "range": [float(lo), float(hi)], "count": count,
+                "pred_mean": p_hat, "true_mean": p_true
+            })
+            ece_total += count * abs(p_hat - p_true)
+            total_count += count
+        metrics['ece'] = float(ece_total / total_count if total_count else 0.0)
+        metrics['calibration_bins'] = calibration_bins
+        
+        return metrics
     
     def save(self, path: str):
         """Save model and scaler."""
@@ -452,7 +466,7 @@ class PyTorchPatentClassifier:
         with open(path / "training_history_pytorch.json", "w") as f:
             json.dump(self.training_history, f, indent=2)
         
-        logger.info(f"Model saved to {path}")
+        logger.info(f"Saved to {path}")
     
     def load(self, path: str):
         """Load model and scaler."""
@@ -480,7 +494,7 @@ class PyTorchPatentClassifier:
         with open(path / "scaler_pytorch.pkl", "rb") as f:
             self.scaler = pickle.load(f)
         
-        logger.info(f"Model loaded from {path}")
+        logger.info(f"Loaded from {path}")
 
 
 if __name__ == "__main__":

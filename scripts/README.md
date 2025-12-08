@@ -26,7 +26,6 @@ Scripts are organized into subfolders by purpose:
 - `hard_negatives/analyze_hard_negatives.py` - Test model on hard negative pairs
 - `hard_negatives/generate_test_hard_negatives.py` - Generate hard negatives for test set
 - `hard_negatives/analyze_negatives.py` - Analyze negative pairs and generate hard negatives
-- `edge_cases/edge_case_analysis.py` - Categorize test cases (easy/hard/boundary)
 - `sensitivity/length_sensitivity.py` - Analyze model sensitivity to input text length
 
 ## Usage

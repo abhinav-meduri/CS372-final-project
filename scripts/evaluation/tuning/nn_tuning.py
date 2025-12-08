@@ -22,7 +22,7 @@ warnings.filterwarnings('ignore')
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.models.pytorch_classifier import PyTorchPatentClassifier
+from src.app.pytorch_classifier import PyTorchPatentClassifier
 
 def load_features(features_dir: str = 'data/features'):
     """Load pre-computed features."""
@@ -79,9 +79,7 @@ def evaluate_config(
 
 
 def main():
-    print("=" * 60)
     print("HYPERPARAMETER TUNING FOR PYTORCH CLASSIFIER")
-    print("=" * 60)
     print()
     
     # Load data
@@ -240,9 +238,7 @@ def main():
         json.dump(results_dict, f, indent=2)
     
     print()
-    print("=" * 60)
     print("HYPERPARAMETER TUNING COMPLETE")
-    print("=" * 60)
     print(f"Best configuration:")
     for param, value in best_config.items():
         print(f"  {param}: {value}")

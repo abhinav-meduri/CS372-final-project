@@ -138,9 +138,7 @@ def find_hard_negatives(patents, embeddings, threshold=0.85, max_pairs=1000):
     return hard_negatives
 
 def main():
-    print("="*70)
     print("GENERATING HARD NEGATIVES FOR TEST SET")
-    print("="*70)
     
     # Load test patent IDs
     test_ids = load_test_patent_ids()

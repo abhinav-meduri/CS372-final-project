@@ -185,9 +185,7 @@ def test_similarity_search(
     """Test the similarity search with a few examples."""
     import faiss
     
-    print("\n" + "="*60)
     print("SIMILARITY SEARCH TEST")
-    print("="*60)
     
     # Normalize for search
     embeddings_normalized = embeddings.copy()
@@ -226,9 +224,7 @@ def test_similarity_search(
 
 
 def main():
-    print("="*60)
     print("PATENT EMBEDDING GENERATION")
-    print("="*60)
     
     # Load patents
     patents = load_sampled_patents()
@@ -243,9 +239,7 @@ def main():
     if index is not None:
         test_similarity_search(index, embeddings, patent_ids, patents)
     
-    print("\n" + "="*60)
     print("[OK] EMBEDDING GENERATION COMPLETE!")
-    print("="*60)
     print(f"\nFiles created:")
     print(f"  - data/embeddings/patent_embeddings.npy ({embeddings.shape})")
     print(f"  - data/embeddings/patent_ids.json ({len(patent_ids):,} IDs)")

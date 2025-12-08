@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import RocCurveDisplay
 
-from src.models.pytorch_classifier import PyTorchPatentClassifier
+from src.app.pytorch_classifier import PyTorchPatentClassifier
 
 def plot_confusion_matrix(y_true, y_pred, save_path, accuracy):
     """Plot confusion matrix."""

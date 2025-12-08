@@ -124,8 +124,8 @@ For technical documentation, see `docs/PROJECT_DOCUMENTATION.md`.
 
 | Model | Accuracy | Precision | Recall | F1 Score | ROC-AUC |
 |-------|----------|-----------|--------|----------|---------|
-| **PyTorch Neural Network (Best)** | **91.64%** | **91.90%** | **91.16%** | **0.9153** | **0.9716** |
-| MLP Classifier | 91.48% | 93.00% | 89.54% | 0.9124 | 0.9713 |
+| **PyTorch Neural Network (Best)** | **91.73%** | **92.83%** | **90.27%** | **0.9153** | **0.9720** |
+| MLP Classifier | 87.58% | 89.28% | 85.16% | 0.8717 | 0.9453 |
 | Logistic Regression | 90.93% | 92.45% | 88.99% | 0.9063 | 0.9674 |
 | Cosine Similarity (heuristic) | 84.27% | 81.23% | 86.42% | 0.8353 | 0.9170 |
 | Random Guessing | 49.78% | 49.80% | 49.80% | 0.4950 | 0.5032 |
@@ -138,20 +138,25 @@ For technical documentation, see `docs/PROJECT_DOCUMENTATION.md`.
 #### PyTorch Neural Network (Production - Best Performing)
 | Metric | Test Set |
 |--------|----------|
-| **Accuracy** | 91.64% |
-| **Precision** | 91.90% |
-| **Recall** | 91.16% |
+| **Accuracy** | 91.73% |
+| **Precision** | 92.83% |
+| **Recall** | 90.27% |
 | **F1 Score** | 0.9153 |
-| **ROC-AUC** | 0.9716 |
+| **ROC-AUC** | 0.9720 |
+| **PR-AUC** | 0.9747 |
+| **Average Precision** | 0.9747 |
+| **Brier Score** | 0.0627 |
+| **ECE** | 0.0089 |
 
 #### MLP Classifier
 | Metric | Test Set |
 |--------|----------|
-| **Accuracy** | 91.48% |
-| **Precision** | 93.00% |
-| **Recall** | 89.54% |
-| **F1 Score** | 0.9124 |
-| **ROC-AUC** | 0.9713 |
+| **Accuracy** | 87.58% |
+| **Precision** | 89.28% |
+| **Recall** | 85.16% |
+| **F1 Score** | 0.8717 |
+| **ROC-AUC** | 0.9453 |
+| **Brier Score** | 0.0905 |
 | **Brier Score** | 0.0639 |
 
 
@@ -168,7 +173,7 @@ For technical documentation, see `docs/PROJECT_DOCUMENTATION.md`.
 | Without Embedding Features | 90.57% | 0.9663 | 0.9035 | -0.0050 |
 | Without Text Similarity | 91.11% | 0.9701 | 0.9089 | -0.0012 |
 | Without Metadata Features | 90.43% | 0.9634 | 0.9008 | -0.0079 |
-| Without BM25 Features | 91.64% | 0.9714 | 0.9145 | +0.0001 |
+| Without BM25 Features | 90.80% | 0.9680 | 0.9077 | +0.0001 |
 | Without CPC Features | 91.57% | 0.9713 | 0.9142 | 0.0000 |
 
 **Feature Selection Process:**
@@ -214,11 +219,38 @@ Based on the ablation study, we systematically evaluated each feature group's co
 - Learning Rate: 0.001
 - Optimizer: AdamW
 
+### Additional Analyses
+
+**Baseline Comparison:**
+The model was compared against several baseline approaches to establish performance benchmarks:
+- **Random Guessing:** 49.78% accuracy (ROC-AUC: 0.50) - serves as lower bound
+- **Majority Class:** 50.47% accuracy (ROC-AUC: 0.50) - demonstrates class imbalance handling
+- **Cosine Similarity Heuristic:** 84.27% accuracy (ROC-AUC: 0.92) - simple embedding-based baseline
+- **Logistic Regression:** 90.93% accuracy (ROC-AUC: 0.97) - linear baseline for comparison
+
+The PyTorch Neural Network (91.73% accuracy) significantly outperforms all baselines, demonstrating the value of engineered features and non-linear modeling.
+
+**Hard Negatives Analysis:**
+The model was tested on 500 hard negative pairs (patents with high semantic similarity but different novelty classifications). Results show:
+- **100% accuracy** on hard negatives (0 false positives)
+- **Low prediction probabilities** (mean: 0.019, max: 0.036) indicating high confidence in "not novel" predictions
+- **Robust discrimination:** Model correctly identifies semantically similar patents as non-novel, demonstrating strong generalization
+
+**Input Length Sensitivity:**
+Analysis of model performance across different input text lengths confirmed:
+- **Stable performance** across typical patent document lengths
+- **Robust to varying input sizes** due to fixed-size feature engineering approach
+- Model maintains consistent accuracy regardless of document length variations
+
+**Ablation Study:**
+Systematic feature removal analysis (detailed above) identified the most critical features and led to feature selection from 13 to 10 features, improving model interpretability while maintaining performance.
+
 ### Inference Performance
 
-- **Single Prediction Latency:** 0.15ms (mean), 0.14ms (median)
-- **Batch Throughput:** 1.4M+ predictions/second
-- **LLM Explanation Generation:** ~30-60 seconds via Ollama
+- **Single Prediction Latency:** 2.66 ms mean (1.71 ms median) — measured on Apple M2 (mps) using `scripts/evaluation/benchmark_inference.py`
+- **Batch Throughput:** ~614k predictions/second at batch size 4,096 (mps)
+- **LLM Explanation Generation:** ~30–60 seconds via Ollama (Phi-3) for long-form explanations
+- **Benchmark Artifact:** `results/analysis/inference_benchmark.json`
 
 ## Documentation
 

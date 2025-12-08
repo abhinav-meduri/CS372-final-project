@@ -311,9 +311,7 @@ class TrainingPairGenerator:
         n_negative: int = 25000
     ) -> Tuple[List[TrainingPair], List[TrainingPair], List[TrainingPair]]:
         """Generate balanced train/val/test splits."""
-        print("\n" + "="*60)
-        print("GENERATING BALANCED TRAINING DATASET")
-        print("="*60)
+        print("\nGENERATING BALANCED TRAINING DATASET")
         
         # Generate positive pairs
         same_year = self.generate_same_year_pairs(int(n_positive * 0.6))
@@ -338,9 +336,7 @@ class TrainingPairGenerator:
         val = all_pairs[n_train:n_train + n_val]
         test = all_pairs[n_train + n_val:]
         
-        print(f"\n{'='*60}")
         print("DATASET SUMMARY")
-        print(f"{'='*60}")
         print(f"Total pairs: {n_total}")
         print(f"  Positive: {len(all_positives)} ({len(all_positives)/n_total*100:.1f}%)")
         print(f"  Negative: {len(all_negatives)} ({len(all_negatives)/n_total*100:.1f}%)")

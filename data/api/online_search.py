@@ -303,19 +303,25 @@ class GooglePatentsSearch:
         Returns:
             Dict mapping term -> list of results
         """
+        if not self.use_serpapi:
+            logger.warning(f"SerpAPI not configured. Cannot search {len(terms)} terms.")
+            return {term: [] for term in terms}
+        
         logger.info(f"Searching {len(terms)} terms with max_per_term={max_per_term}")
         logger.info(f"Using SerpAPI: {self.use_serpapi}, API key present: {bool(self.serpapi_key)}")
         
         results_by_term = {}
         
-        for term in terms:
-            logger.info(f"Searching term: '{term[:100]}...'")
+        for i, term in enumerate(terms, 1):
+            logger.info(f"[{i}/{len(terms)}] Searching term: '{term[:100]}...'")
             results = self.search(term, max_per_term)
             results_by_term[term] = results
             logger.info(f"  '{term[:50]}...': {len(results)} patents found")
             if results:
                 logger.info(f"    First result: {results[0].patent_id} - {results[0].title[:50]}...")
         
+        total_results = sum(len(r) for r in results_by_term.values())
+        logger.info(f"Total online patents found: {total_results} across {len(terms)} terms")
         return results_by_term
     
     def _search_serpapi(self, query: str, max_results: int) -> List[PatentSearchResult]:

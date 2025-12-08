@@ -39,11 +39,24 @@ class ParsedInput:
     
     def to_patent_dict(self) -> Dict:
         """Convert to patent dictionary format."""
+        # Handle claims - can be list of strings or list of dicts
+        claims_list = []
+        if self.claims:
+            for claim in self.claims:
+                if isinstance(claim, dict):
+                    # Extract text from dict format: {"claim_number": 1, "text": "..."}
+                    claim_text = claim.get('text', str(claim))
+                    claims_list.append({"text": claim_text})
+                elif isinstance(claim, str):
+                    claims_list.append({"text": claim})
+                else:
+                    claims_list.append({"text": str(claim)})
+        
         return {
             "patent_id": "INPUT_PATENT",
             "title": self.title or "User Input",
             "abstract": self.abstract or self.raw_text or "",
-            "claims": [{"text": c} for c in (self.claims or [])],
+            "claims": claims_list,
             "year": 2025
         }
 
@@ -321,9 +334,7 @@ class InputHandler:
 if __name__ == "__main__":
     handler = InputHandler()
     
-    print("=" * 60)
     print("INPUT HANDLER TESTS")
-    print("=" * 60)
     
     # Test 1: Search query
     print("\n[TEST 1] Search Query")
@@ -378,7 +389,5 @@ if __name__ == "__main__":
     print(f"  Mode: {result.mode.value}")
     print(f"  Title: {result.title}")
     
-    print("\n" + "=" * 60)
     print("ALL TESTS PASSED")
-    print("=" * 60)
 

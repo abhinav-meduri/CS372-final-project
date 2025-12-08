@@ -21,7 +21,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
 from collections import defaultdict
 import re
 
-from src.models.pytorch_classifier import PyTorchPatentClassifier
+from src.app.pytorch_classifier import PyTorchPatentClassifier
 from src.features.feature_extract import FeatureExtractor
 from sentence_transformers import SentenceTransformer
 
@@ -375,9 +375,7 @@ def analyze_embedding_stability(st_model, patent_data, output_dir, sample_size=1
     return summary
 
 def main():
-    print("="*70)
     print("INPUT LENGTH SENSITIVITY ANALYSIS")
-    print("="*70)
     
     # Setup
     output_dir = Path("results/analysis/input_length")
@@ -391,9 +389,7 @@ def main():
         lengths, stats = analyze_length_distribution(patent_data, feature_names)
         
         if lengths:
-            print("\n" + "="*70)
             print("GENERATING VISUALIZATIONS")
-            print("="*70)
             
             print("\n1. Length distribution...")
             plot_length_distribution(lengths, output_dir)
@@ -407,17 +403,13 @@ def main():
             print(f"  Saved: {output_dir / 'length_statistics.json'}")
     
     # Test truncated inputs (note: limited by pre-computed features)
-    print("\n" + "="*70)
     print("MODEL PERFORMANCE ANALYSIS")
-    print("="*70)
     
     results = test_truncated_inputs(model, X_test, y_test, feature_names, patent_data)
     
     # Analyze embedding stability
     if patent_data:
-        print("\n" + "="*70)
         print("EMBEDDING STABILITY ANALYSIS")
-        print("="*70)
         
         try:
             import pandas as pd
@@ -439,9 +431,7 @@ def main():
         json.dump(results, f, indent=2)
     print(f"\n  Saved: {output_dir / 'sensitivity_results.json'}")
     
-    print("\n" + "="*70)
     print("ANALYSIS COMPLETE")
-    print("="*70)
     print(f"\nResults saved to: {output_dir}")
     print("\nKey Findings:")
     print("  - Model uses pre-computed embeddings, which are robust to length variation")

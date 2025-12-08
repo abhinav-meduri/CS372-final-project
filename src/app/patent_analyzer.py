@@ -2,16 +2,25 @@
 Unified Patent Analyzer
 
 Handles all input modalities:
+
 1. Novelty Assessment - Is this patent/idea novel?
+
 2. Prior Art Search - Find patents related to X
+
 3. Document Analysis - Upload and analyze a document
 
 Integrates:
+
 - PatentSBERTa embeddings
+
 - MLP similarity scoring
+
 - Phi-3 explanations
+
 - Online patent search (Google Patents via SerpAPI)
+
 - LLM-based keyword extraction for smarter search
+
 """
 
 import json
@@ -21,14 +30,12 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union, Tuple
 from dataclasses import dataclass
 import sys
-
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.app.input_handler import InputHandler, InputMode, ParsedInput
 
 # Lazy imports - only load heavy dependencies when needed
 # This speeds up Streamlit startup significantly
-
 
 @dataclass
 class AnalysisResult:
@@ -64,7 +71,6 @@ class AnalysisResult:
     
     # Errors
     error: Optional[str] = None
-
 
 class PatentAnalyzer:
     """
@@ -152,8 +158,8 @@ class PatentAnalyzer:
         
         if self.explainer is None:
             update("Initializing Phi-3 explainer...")
-            from src.explainability.phi3_explainer import get_explainer
-            self.explainer = get_explainer(use_full_model=self.use_full_phi3, use_ollama=True)
+            from src.app.phi3_explainer import Phi3OllamaExplainer
+            self.explainer = Phi3OllamaExplainer()
             update("Phi-3 explainer ready")
         
         if self.use_llm_keywords and self.keyword_extractor is None:
@@ -176,7 +182,7 @@ class PatentAnalyzer:
         if self.pytorch_model is None:
             try:
                 update("Loading PyTorch model...")
-                from src.models.pytorch_classifier import PyTorchPatentClassifier
+                from src.app.pytorch_classifier import PyTorchPatentClassifier
                 from src.features.feature_extract import FeatureExtractor
                 self.pytorch_model = PyTorchPatentClassifier()
                 self.pytorch_model.load('models/pytorch_nn')
@@ -297,7 +303,19 @@ class PatentAnalyzer:
         """
         
         query_patent = parsed.to_patent_dict()
-        query_text = query_patent.get('abstract', '')[:500]
+        # Get query text - prefer abstract, fallback to title, then raw_text
+        query_text = query_patent.get('abstract', '') or query_patent.get('title', '') or parsed.raw_text or ''
+        query_text = query_text[:500] if query_text else ''
+        
+        if not query_text or not query_text.strip():
+            if status_callback:
+                status_callback("ERROR: No valid text found in input. Please provide title, abstract, or description.")
+            return AnalysisResult(
+                mode="novelty",
+                success=False,
+                error="No valid text found in input. Please provide a title, abstract, or description of your invention.",
+                parsed_input=parsed
+            )
         
         extracted_keywords = None
         search_terms = []
@@ -407,8 +425,11 @@ class PatentAnalyzer:
                 
                 if similar_patent_data:
                     if 'embedding' not in query_patent:
-                        query_text = query_patent.get('abstract', '')[:500]
-                        query_patent['embedding'] = self.st_model.encode(query_text)
+                        # Use same fallback logic as above
+                        embed_text = query_patent.get('abstract', '') or query_patent.get('title', '') or parsed.raw_text or ''
+                        embed_text = embed_text[:500] if embed_text else ''
+                        if embed_text:
+                            query_patent['embedding'] = self.st_model.encode(embed_text)
                     
                     feature_vector = self.feature_extractor.extract_features(
                         query_patent,
@@ -452,8 +473,7 @@ class PatentAnalyzer:
         report = self.explainer.generate_explanation(
             query_patent=query_patent,
             similar_patents=all_similar,
-            novelty_score=novelty_score,
-            patentsview_evidence=None
+            novelty_score=novelty_score
         )
         if status_callback:
             status_callback("Analysis complete!")
@@ -546,13 +566,19 @@ class PatentAnalyzer:
 Found **{len(results)} relevant patents** ({len(local_similar)} local + {len(online_patents)} online).
 
 ### Top Results:
+
 """
         for i, r in enumerate(results[:5], 1):
             summary += f"""
+
 **{i}. Patent {r['patent_id']}** (Relevance: {r['similarity']:.1%}, Source: {r['source']})
+
 - Title: {r['title'][:100]}
+
 - Year: {r['year']}
+
 - Abstract: {r['abstract'][:200]}...
+
 """
         
         return AnalysisResult(
@@ -617,8 +643,6 @@ Found **{len(results)} relevant patents** ({len(local_similar)} local + {len(onl
         merged.sort(key=lambda x: x.get('similarity', 0), reverse=True)
         
         return merged
-    
-
 
 def demo():
     """Demo the analyzer with different input types."""
@@ -693,7 +717,5 @@ def demo():
     print("DEMO COMPLETE")
     print("=" * 60)
 
-
 if __name__ == "__main__":
     demo()
-

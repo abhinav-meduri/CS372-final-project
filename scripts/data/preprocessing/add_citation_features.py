@@ -176,9 +176,7 @@ def load_pairs(split: str) -> List[Dict]:
 
 
 def main():
-    print("=" * 60)
     print("ADDING CITATION-BASED FEATURES")
-    print("=" * 60)
     
     # Initialize citation extractor
     extractor = CitationFeatureExtractor()
@@ -212,9 +210,7 @@ def main():
     ]
     
     for split in ['train', 'val', 'test']:
-        print(f"\n{'=' * 40}")
         print(f"Processing {split} split...")
-        print(f"{'=' * 40}")
         
         # Load existing features
         X_old = np.load(features_dir / f'{split}_features.X.npy')
@@ -266,9 +262,7 @@ def main():
     with open(features_dir / 'feature_names_with_citations.json', 'w') as f:
         json.dump(all_names, f, indent=2)
     
-    print(f"\n{'=' * 60}")
     print("CITATION FEATURES COMPUTED")
-    print(f"{'=' * 60}")
     print(f"Total features: {len(all_names)}")
     print(f"New features: {new_feature_names}")
 

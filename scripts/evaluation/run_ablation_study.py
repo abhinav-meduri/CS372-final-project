@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.models.mlp_classifier import PatentNoveltyClassifier
-from src.models.pytorch_classifier import PyTorchPatentClassifier
+from src.app.pytorch_classifier import PyTorchPatentClassifier
 
 
 def load_features(features_dir: str = 'data/features'):
@@ -56,9 +56,7 @@ def evaluate_model(model, X_test, y_test, is_pytorch=False):
 
 def run_ablation_for_model(model_name, model_class, model_kwargs, X_train, y_train, X_val, y_val, X_test, y_test, feature_names):
     """Run ablation study for a specific model."""
-    print(f"\n{'='*70}")
     print(f"{model_name.upper()} MODEL ABLATION STUDY")
-    print(f"{'='*70}")
     
     print(f"\nLoaded {len(feature_names)} features: {feature_names}")
     print(f"Train: {X_train.shape[0]}, Val: {X_val.shape[0]}, Test: {X_test.shape[0]}")
@@ -150,9 +148,7 @@ def run_ablation_for_model(model_name, model_class, model_kwargs, X_train, y_tra
 
 
 def main():
-    print("="*70)
     print("ABLATION STUDY FOR MLP AND PYTORCH MODELS")
-    print("="*70)
     
     # Load data
     X_train, y_train, X_val, y_val, X_test, y_test, feature_names = load_features()
@@ -210,15 +206,11 @@ def main():
     with open(output_dir / 'ablation_results.json', 'w') as f:
         json.dump(all_results, f, indent=2)
     
-    print(f"\n{'='*70}")
     print("ABLATION STUDY COMPLETE")
-    print(f"{'='*70}")
     print(f"\nResults saved to: {output_dir / 'ablation_results.json'}")
     
     # Print comparison
-    print(f"\n{'='*70}")
     print("COMPARISON: MLP vs PyTorch")
-    print(f"{'='*70}")
     print(f"\n{'Model':<20} {'Full Accuracy':<15} {'Full ROC-AUC':<15} {'Full F1':<15}")
     print("-"*70)
     print(f"{'MLP':<20} {mlp_results['All Features']['accuracy']:.4f}          {mlp_results['All Features']['roc_auc']:.4f}          {mlp_results['All Features']['f1']:.4f}")

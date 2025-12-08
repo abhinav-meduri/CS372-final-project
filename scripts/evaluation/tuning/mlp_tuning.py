@@ -51,10 +51,8 @@ def load_features(features_dir: str = 'data/features'):
 
 
 def main():
-    print("="*70)
     print("HYPERPARAMETER TUNING")
     print("Systematic search for optimal MLP configuration")
-    print("="*70)
     
     # Load data
     print("\nLoading features...")
@@ -131,9 +129,7 @@ def main():
     grid_search.fit(X_cv_scaled, y_cv)
     
     # Results
-    print("\n" + "="*70)
-    print("RESULTS")
-    print("="*70)
+    print("\nRESULTS")
     
     print(f"\nBest Parameters:")
     for param, value in grid_search.best_params_.items():
@@ -246,9 +242,7 @@ def main():
     print(f"\nResults saved to: {output_dir}/hyperparameter_results.json")
     
     # Summary
-    print("\n" + "="*70)
-    print("SUMMARY")
-    print("="*70)
+    print("\nSUMMARY")
     print(f"Tested {total_configs} hyperparameter configurations")
     print(f"Used 3-fold cross-validation")
     print(f"Best config: {grid_search.best_params_}")

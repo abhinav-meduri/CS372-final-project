@@ -85,22 +85,26 @@ class LLMKeywordExtractor:
         Returns:
             List of search query strings optimized for Google Patents
         """
-        prompt = f"""As a search specialist for Google Patents, generate {self.num_search_terms} simple, effective search queries to find similar patents.
+        prompt = f"""As a search specialist for Google Patents, generate {self.num_search_terms} effective search queries to find similar patents.
 
 RULES:
-- Keep queries SIMPLE - use 2-4 key terms maximum
-- Prefer simple phrases over complex boolean logic
-- Use AND only when necessary, avoid nested OR/AND combinations
-- Focus on core technical concepts from the invention
-- Each query should be 3-8 words maximum
-- Examples: "sensor calibration embedded", "adaptive calibration system", "drift compensation sensors"
+- Use 2-5 key technical terms per query
+- You can use simple AND/OR operators: (term1) AND (term2) OR (term3)
+- Avoid deeply nested parentheses like: ((A) AND (B)) OR ((C) AND (D))
+- Keep queries focused on core technical concepts
+- Each query should be 4-12 words
+- Examples: 
+  * "sensor calibration embedded systems"
+  * "(adaptive calibration) AND (low power)"
+  * "drift compensation OR sensor recalibration"
+  * "(real-time) AND (sensor error correction)"
 
 INVENTION IDEA:
 {user_input}
 
-OUTPUT: Return ONLY a numbered list of simple search queries, one per line:
-1. first simple query
-2. second simple query
+OUTPUT: Return ONLY a numbered list of search queries, one per line:
+1. first query
+2. second query
 ...
 """
 
@@ -199,36 +203,63 @@ Respond with ONLY the JSON, no explanation."""
     
     def _simplify_query(self, query: str) -> str:
         """
-        Simplify overly complex search queries.
+        Simplify overly complex search queries while preserving useful boolean operators.
         
-        Removes excessive parentheses and boolean operators that Google Patents may reject.
+        Removes deeply nested parentheses but allows simple AND/OR combinations.
         """
-        # Remove outer parentheses if they wrap the entire query
         query = query.strip()
+        
+        # Remove outer parentheses if they wrap the entire query (but keep inner structure)
         while query.startswith('(') and query.endswith(')'):
-            # Check if it's balanced
             if query.count('(') == query.count(')'):
                 inner = query[1:-1].strip()
                 # Only remove if it doesn't break the query structure
-                if not (inner.startswith('(') or ' AND ' in inner or ' OR ' in inner):
+                if not (inner.startswith('(') or (' AND ' in inner and ' OR ' in inner)):
                     query = inner
                 else:
                     break
             else:
                 break
         
-        # If query is too complex (multiple nested AND/OR), simplify to first key terms
-        if query.count(' AND ') > 2 or query.count(' OR ') > 2:
-            # Extract key terms (words in quotes or simple terms)
+        # Check for deeply nested structures like: ((A) AND (B)) OR ((C) AND (D))
+        # Count nested parentheses depth
+        max_depth = 0
+        current_depth = 0
+        for char in query:
+            if char == '(':
+                current_depth += 1
+                max_depth = max(max_depth, current_depth)
+            elif char == ')':
+                current_depth -= 1
+        
+        # If too deeply nested (depth > 2), simplify
+        if max_depth > 2:
+            # Extract key terms from parentheses and quotes
             terms = re.findall(r'\(([^)]+)\)|"([^"]+)"|(\b\w{4,}\b)', query)
             key_terms = []
             for term_group in terms:
                 term = term_group[0] or term_group[1] or term_group[2]
-                if term and len(term) > 3:
-                    key_terms.append(term)
+                if term and len(term.strip()) > 3:
+                    key_terms.append(term.strip())
             
             if len(key_terms) >= 2:
-                # Use first 2-3 key terms with AND
+                # Use first 2-4 key terms with AND
+                query = ' AND '.join(key_terms[:4])
+            elif len(key_terms) == 1:
+                query = key_terms[0]
+        
+        # If query has too many boolean operators (> 3 total), simplify
+        total_operators = query.count(' AND ') + query.count(' OR ')
+        if total_operators > 3:
+            # Extract key terms and use first 3 with AND
+            terms = re.findall(r'\(([^)]+)\)|"([^"]+)"|(\b\w{4,}\b)', query)
+            key_terms = []
+            for term_group in terms:
+                term = term_group[0] or term_group[1] or term_group[2]
+                if term and len(term.strip()) > 3:
+                    key_terms.append(term.strip())
+            
+            if len(key_terms) >= 2:
                 query = ' AND '.join(key_terms[:3])
             elif len(key_terms) == 1:
                 query = key_terms[0]

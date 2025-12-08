@@ -145,8 +145,10 @@ def render_prior_art(patents: list, max_display: int = 10, context: str = "defau
                 year = 'N/A'
         else:
             year = str(year) if isinstance(year, (int, float)) else year
-        # Get similarity score
-        similarity = patent.get('similarity', 0) or patent.get('similarity_score', 0)
+        # Get similarity score (prefer model_similarity if available)
+        similarity = patent.get('model_similarity') or patent.get('similarity', 0) or patent.get('similarity_score', 0)
+        model_novelty = patent.get('model_novelty')
+        rank = patent.get('rank')
         
         source_badge = ""
         if patent.get('source') == 'online' or 'google' in str(patent_id).lower() or any(x in str(patent_id) for x in ['CN', 'JP', 'EP', 'WO']):
@@ -154,14 +156,22 @@ def render_prior_art(patents: list, max_display: int = 10, context: str = "defau
         else:
             source_badge = " [Local]"
         
-        with st.expander(f"**{title}** (Patent {patent_id}, {year}) - Similarity: {similarity:.3f}{source_badge}", expanded=False):
+        # Build title with rank if available
+        title_prefix = f"#{rank} - " if rank else ""
+        score_suffix = f" - Similarity: {similarity:.3f}"
+        if model_novelty is not None:
+            score_suffix = f" - Model Similarity: {similarity:.3f} | Novelty: {model_novelty:.3f}"
+        
+        with st.expander(f"**{title_prefix}{title}** (Patent {patent_id}, {year}){score_suffix}{source_badge}", expanded=False):
             col1, col2 = st.columns(2)
             with col1:
+                if rank:
+                    st.markdown(f"**Rank:** #{rank}")
                 st.markdown(f"**Patent ID:** {patent_id}")
                 st.markdown(f"**Year:** {year}")
                 st.markdown(f"**Similarity:** {similarity:.3f}")
-                if not similarity:
-                    st.markdown(f"**Embedding Similarity:** {display_score:.3f}")
+                if model_novelty is not None:
+                    st.markdown(f"**Model Novelty:** {model_novelty:.3f}")
             with col2:
                 if patent.get('cpc_code'):
                     st.markdown(f"**CPC Code:** {patent.get('cpc_code')}")
@@ -253,6 +263,11 @@ def render_novelty_result(result, input_text: str = ""):
     recommendation = result.recommendation if result.recommendation else ''
     assessment = result.assessment if result.assessment else None
     
+    # Get ranking metadata if available
+    search_metadata = result.search_metadata if result.search_metadata else {}
+    rank_percentile = search_metadata.get('rank_percentile')
+    top_k_scored = search_metadata.get('top_k_scored', 0)
+    
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Novelty Score", f"{score:.3f}")
@@ -262,6 +277,10 @@ def render_novelty_result(result, input_text: str = ""):
         online_count = sum(1 for p in similar_patents if p.get('source') == 'online' or 'google' in str(p.get('patent_id', '')).lower())
         local_count = len(similar_patents) - online_count
         st.metric("Search Sources", f"{local_count} local, {online_count} online")
+    
+    # Display rank percentile if available
+    if rank_percentile is not None and top_k_scored > 0:
+        st.info(f"**Rank Percentile:** {rank_percentile:.1f}% - Ranks in top {rank_percentile:.1f}% most novel among {top_k_scored} analyzed patents")
     
     # Score visualization with assessment
     score_class = "score-high" if score > 0.7 else "score-medium" if score > 0.5 else "score-low"

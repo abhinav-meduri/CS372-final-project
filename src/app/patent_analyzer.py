@@ -414,37 +414,84 @@ class PatentAnalyzer:
         
         all_similar = self._merge_results(local_similar, online_patents)
         
+        # Ranking-based assessment: score top-K candidates
+        top_k = min(20, len(all_similar))
+        scored_patents = []
+        
         if self.pytorch_model and self.feature_extractor and all_similar:
             try:
-                top_similar = all_similar[0]
-                patent_id = str(top_similar['patent_id'])
-                similar_patent_data = self.patents.get(patent_id)
+                if 'embedding' not in query_patent:
+                    embed_text = query_patent.get('abstract', '') or query_patent.get('title', '') or parsed.raw_text or ''
+                    embed_text = embed_text[:500] if embed_text else ''
+                    if embed_text:
+                        query_patent['embedding'] = self.st_model.encode(embed_text, show_progress_bar=False)
                 
-                if not similar_patent_data:
-                    similar_patent_data = self._load_patent(patent_id)
+                if status_callback:
+                    status_callback(f"Scoring top {top_k} candidates with PyTorch model...")
                 
-                if similar_patent_data:
-                    if 'embedding' not in query_patent:
-                        # Use same fallback logic as above
-                        embed_text = query_patent.get('abstract', '') or query_patent.get('title', '') or parsed.raw_text or ''
-                        embed_text = embed_text[:500] if embed_text else ''
-                        if embed_text:
-                            query_patent['embedding'] = self.st_model.encode(embed_text, show_progress_bar=False)
+                for i, similar_patent in enumerate(all_similar[:top_k]):
+                    patent_id = str(similar_patent['patent_id'])
+                    similar_patent_data = self.patents.get(patent_id)
                     
-                    feature_vector = self.feature_extractor.extract_features(
-                        query_patent,
-                        similar_patent_data
-                    )
+                    if not similar_patent_data:
+                        similar_patent_data = self._load_patent(patent_id)
                     
-                    feature_array = feature_vector.to_array(self.feature_names).reshape(1, -1)
-                    similarity_prob = self.pytorch_model.predict_proba(feature_array)[0][1]
-                    novelty_score = 1 - similarity_prob
+                    if similar_patent_data:
+                        try:
+                            feature_vector = self.feature_extractor.extract_features(
+                                query_patent,
+                                similar_patent_data
+                            )
+                            feature_array = feature_vector.to_array(self.feature_names).reshape(1, -1)
+                            similarity_prob = self.pytorch_model.predict_proba(feature_array)[0][1]
+                            novelty_prob = 1 - similarity_prob
+                            
+                            similar_patent['model_similarity'] = float(similarity_prob)
+                            similar_patent['model_novelty'] = float(novelty_prob)
+                            scored_patents.append(similar_patent)
+                        except Exception as e:
+                            print(f"Failed to score patent {patent_id}: {e}")
+                            similar_patent['model_similarity'] = similar_patent.get('similarity', 0)
+                            similar_patent['model_novelty'] = 1 - similar_patent.get('similarity', 0)
+                            scored_patents.append(similar_patent)
+                    else:
+                        similar_patent['model_similarity'] = similar_patent.get('similarity', 0)
+                        similar_patent['model_novelty'] = 1 - similar_patent.get('similarity', 0)
+                        scored_patents.append(similar_patent)
+                
+                if scored_patents:
+                    # Sort by model similarity (lowest = most novel)
+                    scored_patents.sort(key=lambda x: x.get('model_similarity', 1.0))
                     
-                    print(f"PyTorch model scored: similarity={similarity_prob:.3f}, novelty={novelty_score:.3f}")
+                    # Add rank to each patent
+                    for rank, patent in enumerate(scored_patents, 1):
+                        patent['rank'] = rank
+                    
+                    # Calculate rank distribution metrics
+                    model_similarities = [p.get('model_similarity', 1.0) for p in scored_patents]
+                    mean_similarity = float(np.mean(model_similarities))
+                    mean_novelty = 1 - mean_similarity
+                    
+                    # Calculate percentile rank (how novel compared to top-K)
+                    # Lower similarity = higher novelty, so we invert for percentile
+                    query_similarity = model_similarities[0] if model_similarities else 1.0
+                    percentile = (1 - (np.sum(np.array(model_similarities) < query_similarity) / len(model_similarities))) * 100 if model_similarities else 0.0
+                    
+                    # Novelty score from rank distribution
+                    novelty_score = mean_novelty
+                    
+                    search_metadata['top_k_scored'] = len(scored_patents)
+                    search_metadata['rank_percentile'] = float(percentile)
+                    search_metadata['mean_similarity'] = float(mean_similarity)
+                    
+                    print(f"Ranking-based assessment: scored {len(scored_patents)} patents, mean similarity={mean_similarity:.3f}, novelty={mean_novelty:.3f}, percentile={percentile:.1f}%")
+                    
+                    # Update all_similar with scored patents (in rank order) + unscored patents
+                    all_similar = scored_patents + all_similar[top_k:]
                 else:
                     max_sim = all_similar[0]['similarity'] if all_similar else 0
                     novelty_score = 1 - max_sim
-                    print(f"Using similarity fallback (patent data not found)")
+                    print(f"Using similarity fallback (no patents could be scored)")
             except Exception as e:
                 max_sim = all_similar[0]['similarity'] if all_similar else 0
                 novelty_score = 1 - max_sim

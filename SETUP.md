@@ -81,9 +81,9 @@ The application requires several large data files that are not included in the r
 
 ### Download Required Files from Box
 
-**Box Link:** https://duke.box.com/s/4y6mjf1965d15gnltnkqnk0dkedbttqh
+**[Download Required Data Files from Duke Box](https://duke.box.com/s/4y6mjf1965d15gnltnkqnk0dkedbttqh)**
 
-**Note:** This is a Duke Box link. You may need Duke network credentials to access it. If you don't have access, contact the repository maintainer.
+**Note:** You may need Duke network credentials to access the Box folder. If you don't have access, contact the repository maintainer.
 
 **Package Contents:**
 - Patent embeddings and metadata (~7 GB total)

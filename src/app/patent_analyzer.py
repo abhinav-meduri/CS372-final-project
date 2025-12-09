@@ -473,9 +473,15 @@ class PatentAnalyzer:
                     mean_novelty = 1 - mean_similarity
                     
                     # Calculate percentile rank (how novel compared to top-K)
-                    # Lower similarity = higher novelty, so we invert for percentile
+                    # Lower similarity = higher novelty
+                    # Percentile represents: what % of patents are LESS similar (more novel) than this one
+                    # So if percentile = 100%, it means this is the LEAST novel (most similar)
+                    # We want to show it as "bottom 100%" or invert to show "top 0%"
                     query_similarity = model_similarities[0] if model_similarities else 1.0
-                    percentile = (1 - (np.sum(np.array(model_similarities) < query_similarity) / len(model_similarities))) * 100 if model_similarities else 0.0
+                    # Count how many patents are MORE novel (less similar) than this one
+                    more_novel_count = np.sum(np.array(model_similarities) < query_similarity)
+                    # Percentile: what % are less similar (more novel)
+                    percentile = (more_novel_count / len(model_similarities)) * 100 if model_similarities else 0.0
                     
                     # Novelty score from rank distribution
                     novelty_score = mean_novelty
@@ -504,7 +510,8 @@ class PatentAnalyzer:
             if not self.pytorch_model:
                 print(f"PyTorch model not loaded, using similarity-based scoring")
         
-        # Determine assessment
+        # Determine assessment (for UI display only - actual score is continuous and ranking-based)
+        # These thresholds are NOT used for scoring, only for display labels
         if novelty_score > 0.7:
             assessment = "HIGHLY NOVEL"
         elif novelty_score > 0.5:

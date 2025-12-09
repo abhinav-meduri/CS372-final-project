@@ -47,7 +47,100 @@ def render_header():
     """, unsafe_allow_html=True)
 
 
-def render_prior_art(patents: list, max_display: int = 10, context: str = "default"):
+def _summarize_abstract(abstract_text: str, max_sentences: int = 4) -> str:
+    """Summarize abstract to first few sentences."""
+    if not abstract_text or abstract_text == 'No abstract available':
+        return abstract_text
+    
+    sentences = [s.strip() for s in abstract_text.replace('\n', ' ').split('.') if s.strip()]
+    if not sentences:
+        trimmed = abstract_text.strip()
+        if len(trimmed) > 500:
+            trimmed = trimmed[:500].rsplit(' ', 1)[0]
+        return trimmed
+    
+    selected = sentences[:max_sentences]
+    summary = '. '.join(selected)
+    if len(summary) > 500:
+        summary = summary[:500].rsplit(' ', 1)[0]
+    
+    return summary.strip()
+
+
+def _extract_key_claims(claims: list, max_claims: int = 3) -> list:
+    """Extract key claims (prefer independent claims, limit to max_claims)."""
+    if not claims:
+        return []
+    
+    # Separate independent and dependent claims
+    independent = []
+    dependent = []
+    
+    for claim in claims:
+        if isinstance(claim, dict):
+            is_dependent = claim.get('dependent', False)
+            claim_text = claim.get('text', '')
+            claim_num = claim.get('claim_num', 0)
+            
+            if not is_dependent and claim_text:
+                independent.append((claim_num, claim_text))
+            elif claim_text:
+                dependent.append((claim_num, claim_text))
+        else:
+            # Fallback: treat as independent
+            independent.append((0, str(claim)))
+    
+    # Prefer independent claims, fall back to dependent if needed
+    key_claims = []
+    if independent:
+        # Sort by claim number and take first max_claims
+        independent.sort(key=lambda x: x[0])
+        key_claims = [{'text': text, 'claim_num': num} for num, text in independent[:max_claims]]
+    elif dependent:
+        # If no independent claims, use dependent
+        dependent.sort(key=lambda x: x[0])
+        key_claims = [{'text': text, 'claim_num': num} for num, text in dependent[:max_claims]]
+    
+    return key_claims
+
+
+def _find_overlapping_quotes(query_text: str, patent_text: str, max_quotes: int = 3) -> list:
+    """Find overlapping phrases between query and patent text."""
+    if not query_text or not patent_text:
+        return []
+    
+    import re
+    
+    # Extract meaningful words (3+ characters) from query
+    query_words = re.findall(r'\b\w{3,}\b', query_text.lower())
+    if len(query_words) < 2:
+        return []
+    
+    # Find phrases in patent text that contain query words
+    patent_lower = patent_text.lower()
+    overlapping_phrases = []
+    
+    # Look for 3-5 word phrases containing query terms
+    for i in range(len(query_words) - 1):
+        # Try 3-word, 4-word, 5-word phrases
+        for phrase_len in [3, 4, 5]:
+            if i + phrase_len <= len(query_words):
+                phrase = ' '.join(query_words[i:i+phrase_len])
+                # Find this phrase in patent text
+                if phrase in patent_lower:
+                    # Extract context around the match
+                    idx = patent_lower.find(phrase)
+                    start = max(0, idx - 50)
+                    end = min(len(patent_text), idx + len(phrase) + 50)
+                    context = patent_text[start:end].strip()
+                    if context and context not in overlapping_phrases:
+                        overlapping_phrases.append(context)
+    
+    # Return top max_quotes
+    return overlapping_phrases[:max_quotes]
+
+
+def render_prior_art(patents: list, max_display: int = 10, context: str = "default", query_text: str = ""):
     import html
     
     if not patents:
@@ -128,13 +221,8 @@ def render_prior_art(patents: list, max_display: int = 10, context: str = "defau
         
         # Process abstract: ensure good coverage and ends with period
         abstract_text = str(abstract_raw) if abstract_raw and not isinstance(abstract_raw, dict) else 'No abstract available'
-        if abstract_text and abstract_text != 'No abstract available':
-            if len(abstract_text) > 800:
-                abstract_text = abstract_text[:800].rsplit('.', 1)[0] + '.'
-            abstract_text = abstract_text.strip()
-            if abstract_text and not abstract_text.endswith(('.', '!', '?')):
-                abstract_text += '.'
-        abstract = html.escape(abstract_text)
+        abstract_summary = _summarize_abstract(abstract_text, max_sentences=4)
+        abstract = html.escape(abstract_summary)
         
         year = patent.get('year', 'N/A')
         if year == 'N/A' or not year or year == 0:
@@ -146,7 +234,9 @@ def render_prior_art(patents: list, max_display: int = 10, context: str = "defau
         else:
             year = str(year) if isinstance(year, (int, float)) else year
         # Get similarity score (prefer model_similarity if available)
-        similarity = patent.get('model_similarity') or patent.get('similarity', 0) or patent.get('similarity_score', 0)
+        similarity = patent.get('model_similarity')
+        if similarity is None:
+            similarity = patent.get('similarity', patent.get('similarity_score', 0.0))
         model_novelty = patent.get('model_novelty')
         rank = patent.get('rank')
         
@@ -180,17 +270,21 @@ def render_prior_art(patents: list, max_display: int = 10, context: str = "defau
                 if patent.get('inventor'):
                     st.markdown(f"**Inventor:** {patent.get('inventor')}")
             
-            st.markdown(f"**Abstract:** {abstract}")
-            
+            # Filter out SerpAPI URLs
+            patent_url = None
             if patent.get('url') or patent.get('link'):
-                patent_url = patent.get('url') or patent.get('link')
-                st.markdown(f"**Link:** [{patent_url}]({patent_url})")
+                url = patent.get('url') or patent.get('link')
+                # Only show URL if it's not a SerpAPI link
+                if url and 'serpapi.com' not in str(url).lower():
+                    patent_url = url
             
-            if patent.get('claims'):
-                st.markdown("**Claims:**")
-                for claim in patent['claims'][:3]:
-                    claim_str = str(claim) if not isinstance(claim, dict) else str(claim.get('text', claim))
-                    st.markdown(f"- {html.escape(claim_str)}")
+            # Summarize abstract (longer, no claims)
+            abstract_summary = _summarize_abstract(abstract_text, max_sentences=4)
+            st.markdown(f"**Summary:** {abstract_summary}")
+            
+            # Show patent URL if available (and not SerpAPI)
+            if patent_url:
+                st.markdown(f"**Link:** [{patent_url}]({patent_url})")
 
 
 def generate_report_text(result, input_text: str = ""):
@@ -268,45 +362,87 @@ def render_novelty_result(result, input_text: str = ""):
     rank_percentile = search_metadata.get('rank_percentile')
     top_k_scored = search_metadata.get('top_k_scored', 0)
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Novelty Score", f"{score:.3f}")
-    with col2:
-        st.metric("Similar Patents", len(similar_patents))
-    with col3:
-        online_count = sum(1 for p in similar_patents if p.get('source') == 'online' or 'google' in str(p.get('patent_id', '')).lower())
-        local_count = len(similar_patents) - online_count
-        st.metric("Search Sources", f"{local_count} local, {online_count} online")
+    # Calculate similarity percentage
+    similarity_pct = (1 - score) * 100
     
-    # Display rank percentile if available
-    if rank_percentile is not None and top_k_scored > 0:
-        st.info(f"**Rank Percentile:** {rank_percentile:.1f}% - Ranks in top {rank_percentile:.1f}% most novel among {top_k_scored} analyzed patents")
+    # Determine assessment styling
+    if score > 0.7:
+        assessment_color = "#4CAF50"
+        assessment_label = "HIGHLY NOVEL"
+    elif score > 0.5:
+        assessment_color = "#FFA726"
+        assessment_label = "MODERATELY NOVEL"
+    elif score > 0.3:
+        assessment_color = "#FF9800"
+        assessment_label = "LOW NOVELTY"
+    else:
+        assessment_color = "#EF5350"
+        assessment_label = "NOT NOVEL"
     
-    # Score visualization with assessment
-    score_class = "score-high" if score > 0.7 else "score-medium" if score > 0.5 else "score-low"
-    similarity_pct = f"{(1-score)*100:.0f}%"
-    assessment_text = f"<div style='margin-top: 0.5rem; font-size: 1rem; font-weight: 600; color: {'#4CAF50' if score > 0.7 else '#FFA726' if score > 0.5 else '#EF5350'};'>{assessment}</div>" if assessment else ""
-    
+    # Main assessment card
     st.markdown(f"""
-    <div class="score-box">
-        <div class="score-value {score_class}">{score:.2f}</div>
-        <div class="score-label">Novelty Score</div>
-        {assessment_text}
-        <div class="score-similarity" style="margin-top: 0.5rem; font-size: 0.875rem; color: #888;">Similarity to Prior Art: {similarity_pct}</div>
-    </div>
-    <div style="margin-top: 0.5rem; padding: 0.75rem; background: #252525; border-radius: 4px; font-size: 0.85rem; color: #aaa;">
-        <strong>Scale:</strong> 0.0 = Not Novel (100% similar to prior art) | 1.0 = Highly Novel (0% similar to prior art)<br>
-        <strong>Your Score:</strong> {score:.2f} means your patent is {similarity_pct} similar to prior art.
+    <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%); border: 2px solid {assessment_color}; border-radius: 12px; padding: 2rem; margin: 1.5rem 0; text-align: center;">
+        <div style="font-size: 3.5rem; font-weight: 700; color: {assessment_color}; margin-bottom: 0.5rem;">{score:.2f}</div>
+        <div style="font-size: 1.5rem; font-weight: 600; color: {assessment_color}; margin-bottom: 1rem;">
+            {assessment_label}
+        </div>
+        <div style="font-size: 1rem; color: #aaa; margin-top: 1rem;">
+            {similarity_pct:.0f}% similar to prior art found
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
+    # Metrics row
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Novelty Score", f"{score:.2f}", help="0.0 = Not Novel, 1.0 = Highly Novel")
+    with col2:
+        st.metric("Similar Patents", len(similar_patents), help="Number of similar prior art patents found")
+    with col3:
+        online_count = sum(1 for p in similar_patents if p.get('source') == 'online' or 'google' in str(p.get('patent_id', '')).lower())
+        local_count = len(similar_patents) - online_count
+        st.metric("Search Coverage", f"{local_count}L + {online_count}O", help="Local (L) and Online (O) patents found")
+    with col4:
+        if rank_percentile is not None and top_k_scored > 0:
+            # Fix percentile display: rank_percentile represents % that are MORE novel
+            # So if rank_percentile = 100%, it means 100% are more novel = this is least novel (0% novel)
+            # We want to show it as "Top 0%" or "Bottom 100%"
+            novelty_percentile = 100 - rank_percentile if rank_percentile else None
+            if novelty_percentile is not None:
+                st.metric("Novelty Rank", f"Top {novelty_percentile:.0f}%", help=f"Compared to {top_k_scored} analyzed patents")
+    
+    # Explanation section
+    with st.expander("📊 What do these metrics mean?", expanded=False):
+        st.markdown("""
+        **Novelty Score (0.0 - 1.0)**
+        - **0.0 - 0.3**: Not Novel - Significant overlap with existing patents
+        - **0.3 - 0.5**: Low Novelty - Some unique aspects but substantial prior art
+        - **0.5 - 0.7**: Moderately Novel - Notable differences from prior art
+        - **0.7 - 1.0**: Highly Novel - Minimal similarity to existing patents
+        
+        **Similarity Percentage**
+        - Shows how similar your patent is to the most similar prior art found
+        - Lower percentage = more novel
+        - Based on PyTorch neural network analysis of 10 engineered features
+        
+        **Novelty Rank**
+        - Your patent's novelty compared to the top 20 most similar patents analyzed
+        - "Top X%" means your patent is more novel than X% of similar patents
+        - Based on ranking distribution of model similarity scores
+        
+        **Search Coverage**
+        - **Local (L)**: Patents from our 200K patent database (2021-2025)
+        - **Online (O)**: Patents found via Google Patents search (millions of patents)
+        """)
+    
+    # Recommendation
     if recommendation:
         if score < 0.3:
-            st.success(f"**Recommendation:** {recommendation}")
+            st.error(f"**Recommendation:** {recommendation}")
         elif score < 0.7:
             st.warning(f"**Recommendation:** {recommendation}")
         else:
-            st.error(f"**Recommendation:** {recommendation}")
+            st.success(f"**Recommendation:** {recommendation}")
     
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -575,7 +711,7 @@ a:hover{color:#fff}
                     
                     with col2:
                         st.markdown("### Similar Patents Found")
-                        render_prior_art(similar_patents, context="novelty")
+                        render_prior_art(similar_patents, context="novelty", query_text=input_text)
                 except Exception as e:
                     st.error(f"Error displaying results: {str(e)}")
                     import traceback
@@ -639,6 +775,7 @@ a:hover{color:#fff}
                     result = analyze_and_display(search_query, is_search=True)
                     if result:
                         st.session_state['search_result'] = result
+                        st.session_state['last_query'] = search_query  # Store query for overlapping quotes
                     else:
                         st.error("Search returned no result")
                 except Exception as e:
@@ -652,7 +789,9 @@ a:hover{color:#fff}
             result = st.session_state['search_result']
             st.markdown("### Search Results")
             similar_patents = result.similar_patents if result.similar_patents else []
-            render_prior_art(similar_patents, max_display=20, context="search")
+            # Get query text from session state if available
+            query_text = st.session_state.get('last_query', '')
+            render_prior_art(similar_patents, max_display=20, context="search", query_text=query_text)
 
 
 if __name__ == "__main__":

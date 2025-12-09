@@ -1,10 +1,7 @@
 """
 Phi-3 Local LLM Explainer for Patent Novelty
-
 Uses Microsoft's Phi-3-mini model locally via Ollama for generating patent novelty explanations.
-- Ollama backend (fastest, with KV caching and Metal acceleration)
-
-No API keys required - runs entirely locally!
+Ollama backend (fastest, with KV caching and Metal acceleration)
 Requires: Ollama running with phi3 model (ollama pull phi3)
 """
 
@@ -18,7 +15,7 @@ import json
 class NoveltyReport:
     """Structured novelty assessment report."""
     novelty_score: float
-    assessment: str  # NOVEL, MODERATELY_NOVEL, LOW_NOVELTY, NOT_NOVEL
+    assessment: str 
     summary: str
     claim_analysis: List[Dict]
     prior_art_citations: List[Dict]
@@ -40,7 +37,7 @@ class Phi3OllamaExplainer:
         self,
         model_name: str = "phi3",
         base_url: str = "http://localhost:11434",
-        max_new_tokens: int = 2000  # Detailed analysis with evidence (increased for longer explanations)
+        max_new_tokens: int = 4000
     ):
         """
         Initialize Ollama-based Phi-3 explainer.
@@ -87,7 +84,6 @@ class Phi3OllamaExplainer:
         query_abstract = query_patent.get('abstract', 'N/A')[:1000]
         query_title = query_patent.get('title', 'N/A')[:250]
         
-        # Determine verdict suggestion based on score
         if novelty_score > 0.65:
             suggested_verdict = "NOVEL"
         elif novelty_score > 0.45:

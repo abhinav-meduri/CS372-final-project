@@ -1,20 +1,9 @@
-"""
-Generate baseline comparison plot.
-
-Compares our models (MLP, PyTorch) against baseline methods:
-- Random Guessing (50/50)
-- Majority Class Classifier
-- Logistic Regression
-- Cosine Similarity Threshold (heuristic)
-
-Saves plot to results/plots/baseline/baseline_comparison.png
-"""
+"""Compare baselines vs MLP/PyTorch metrics and print summaries."""
 
 import sys
 from pathlib import Path
 import json
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
@@ -22,22 +11,12 @@ from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_s
 project_root = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# Set style
-try:
-    plt.style.use('seaborn-v0_8')
-except:
-    plt.style.use('default')
-
-# Output directory
-output_dir = project_root / 'results' / 'plots' / 'baseline'
-output_dir.mkdir(parents=True, exist_ok=True)
-
-print("BASELINE COMPARISON ANALYSIS")
+print("BASELINE COMPARISON (dry run)")
 
 # Load test data
 print("\n1. Loading test data...")
-X_test = np.load(project_root / 'data' / 'features' / 'test_features_v2.X.npy')
-y_test = np.load(project_root / 'data' / 'features' / 'test_features_v2.y.npy')
+X_test = np.load(project_root/'data'/'features'/'test_features_v2.X.npy')
+y_test = np.load(project_root/'data'/'features'/'test_features_v2.y.npy')
 
 # Remove BM25 and CPC features (indices 0, 1, 6) to match 10-feature models
 indices_to_remove = [0, 1, 6]
@@ -49,8 +28,8 @@ print(f"   Features: {X_test_10feat.shape[1]} (10 features after removal)")
 
 # Load model metrics
 print("\n2. Loading model metrics...")
-mlp_metrics = json.load(open(project_root / 'results' / 'mlp' / 'mlp_metrics.json'))
-pytorch_metrics = json.load(open(project_root / 'results' / 'pytorch_nn' / 'pytorch_metrics.json'))
+mlp_metrics = json.load(open(project_root/'models'/'mlp'/'mlp_metrics.json'))
+pytorch_metrics = json.load(open(project_root/'results'/'pytorch_nn'/'pytorch_metrics.json'))
 
 # Baseline 1: Random Guessing (50/50)
 print("\n3. Evaluating baseline methods...")
@@ -161,89 +140,12 @@ print("-"*70)
 for method, metrics in results.items():
     print(f"{method:<30} {metrics['accuracy']:<12.4f} {metrics['roc_auc']:<12.4f} {metrics['f1']:<12.4f}")
 
-# Create visualization
-print("\n4. Generating comparison plot...")
-fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+print("\nSummary (no plots saved):")
+for method, metrics in results.items():
+    print(
+        f"{method:<28} acc={metrics['accuracy']:.4f} "
+        f"roc={metrics['roc_auc']:.4f} f1={metrics['f1']:.4f}"
+    )
 
-methods = list(results.keys())
-accuracies = [results[m]['accuracy'] for m in methods]
-roc_aucs = [results[m]['roc_auc'] for m in methods]
-f1_scores = [results[m]['f1'] for m in methods]
-
-# Neutral color scheme matching ablation plot
-base_color = '#4A90A4'  # Neutral teal-blue
-highlight_color = '#2C5F7D'  # Darker blue for our models
-light_color = '#7FB3C3'  # Lighter blue for baselines
-
-colors = []
-for m in methods:
-    if m in ['Random Guessing', 'Majority Class', 'Logistic Regression', 'Cosine Similarity (heuristic)']:
-        colors.append(light_color)  # Light teal-blue for baselines
-    elif m == 'MLP Classifier':
-        colors.append(base_color)  # Neutral teal-blue
-    elif m == 'PyTorch Neural Net':
-        colors.append(highlight_color)  # Darker blue
-
-# Plot 1: Accuracy
-ax = axes[0]
-bars = ax.barh(range(len(methods)), accuracies, color=colors, alpha=0.8, edgecolor='#1a1a1a', linewidth=0.8)
-ax.set_yticks(range(len(methods)))
-ax.set_yticklabels(methods, fontsize=10)
-ax.set_xlabel('Accuracy', fontsize=12, fontweight='bold')
-ax.set_title('Accuracy Comparison', fontsize=13, fontweight='bold')
-ax.grid(axis='x', alpha=0.3, linestyle='--', linewidth=0.5)
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-ax.set_xlim([0.4, 0.95])
-# Add value labels
-for i, (bar, acc) in enumerate(zip(bars, accuracies)):
-    ax.text(acc + 0.005, i, f'{acc:.4f}', va='center', fontsize=9, fontweight='bold', color='#1a1a1a')
-
-# Plot 2: ROC-AUC
-ax = axes[1]
-bars = ax.barh(range(len(methods)), roc_aucs, color=colors, alpha=0.8, edgecolor='black', linewidth=1.2)
-ax.set_yticks(range(len(methods)))
-ax.set_yticklabels(methods, fontsize=10)
-ax.set_xlabel('ROC-AUC', fontsize=12, fontweight='bold')
-ax.set_title('ROC-AUC Comparison', fontsize=13, fontweight='bold')
-ax.grid(axis='x', alpha=0.3, linestyle='--', linewidth=0.5)
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-ax.set_xlim([0.4, 1.0])
-# Add value labels
-for i, (bar, roc) in enumerate(zip(bars, roc_aucs)):
-    ax.text(roc + 0.005, i, f'{roc:.4f}', va='center', fontsize=9, fontweight='bold', color='#1a1a1a')
-
-# Plot 3: F1 Score
-ax = axes[2]
-bars = ax.barh(range(len(methods)), f1_scores, color=colors, alpha=0.8, edgecolor='black', linewidth=1.2)
-ax.set_yticks(range(len(methods)))
-ax.set_yticklabels(methods, fontsize=10)
-ax.set_xlabel('F1 Score', fontsize=12, fontweight='bold')
-ax.set_title('F1 Score Comparison', fontsize=13, fontweight='bold')
-ax.grid(axis='x', alpha=0.3, linestyle='--', linewidth=0.5)
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-ax.set_xlim([0.4, 0.95])
-# Add value labels
-for i, (bar, f1) in enumerate(zip(bars, f1_scores)):
-    ax.text(f1 + 0.005, i, f'{f1:.4f}', va='center', fontsize=9, fontweight='bold', color='#1a1a1a')
-
-plt.suptitle('Model Performance vs Baseline Methods', fontsize=16, fontweight='bold', y=1.02)
-plt.tight_layout()
-
-# Save plot
-output_path = output_dir / 'baseline_comparison.png'
-plt.savefig(output_path, dpi=150, bbox_inches='tight', facecolor='white', edgecolor='none')
-plt.close()
-
-print(f"\n✓ Plot saved to: {output_path}")
-
-# Save results JSON
-results_path = output_dir / 'baseline_results.json'
-with open(results_path, 'w') as f:
-    json.dump(results, f, indent=2, default=str)
-print(f"✓ Results saved to: {results_path}")
-
-print("BASELINE COMPARISON COMPLETE")
+print("\nBaseline comparison complete (dry run).")
 

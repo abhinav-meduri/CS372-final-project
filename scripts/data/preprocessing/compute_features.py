@@ -1,212 +1,115 @@
-"""
-Compute features for training pairs.
+"""Compute patent-pair features for train/val/test splits used by the PyTorch novelty model.
 
-This script:
-1. Loads training pairs (from citation-based pairs)
-2. Loads patent data
-3. Loads embeddings (if available)
-4. Computes all features
-5. Saves feature matrices for MLP training
-"""
+Loads precomputed embeddings when available, aligns them to patent IDs, extracts the 10-base
+feature set from `FeatureExtractor`, and reports summary statistics."""
+
+from __future__ import annotations
 
 import json
-import numpy as np
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 from tqdm import tqdm
-import pickle
-from typing import Dict, List, Optional
 
-from src.features.feature_extract import FeatureExtractor, FeatureVector
+from src.features.feature_extract import FeatureExtractor
 
 
-def load_patents_dict(
-    sampled_path: str = 'data/sampled/patents_sampled.jsonl'
-) -> Dict[str, dict]:
-    """Load patents into a dictionary keyed by patent_id."""
-    print(f"Loading patents from {sampled_path}...")
-    patents = {}
-    
-    with open(sampled_path, 'r') as f:
+data_dir = Path("data")
+emb_dir = data_dir/"embeddings"
+patents_file = data_dir/"sampled/patents_sampled.jsonl"
+splits = ["train", "val", "test"]
+
+
+def load_patents(path: Path = patents_file) -> Dict[str, dict]:
+    patents: Dict[str, dict] = {}
+    with path.open("r") as f:
         for line in tqdm(f, desc="Loading patents"):
             patent = json.loads(line)
-            patents[str(patent['patent_id'])] = patent
-    
-    print(f"Loaded {len(patents)} patents")
+            patents[str(patent["patent_id"])] = patent
     return patents
 
 
-def load_pairs(
-    pairs_path: str
-) -> List[dict]:
-    """Load training pairs from JSONL."""
-    pairs = []
-    with open(pairs_path, 'r') as f:
+def load_pairs(path: Path) -> List[dict]:
+    pairs: List[dict] = []
+    with path.open("r") as f:
         for line in f:
             pairs.append(json.loads(line))
     return pairs
 
 
-def load_embeddings(
-    embeddings_dir: str = 'data/embeddings'
-) -> tuple:
-    """Load pre-computed embeddings if available."""
-    embeddings_path = Path(embeddings_dir) / 'patent_embeddings.npy'
-    
-    # Try JSON first, then NPY for IDs
-    ids_path_json = Path(embeddings_dir) / 'patent_ids.json'
-    ids_path_npy = Path(embeddings_dir) / 'patent_ids.npy'
-    
-    if not embeddings_path.exists():
-        print("[WARN] Embeddings not found. Will compute text-based features only.")
+def load_embeddings(path: Path = emb_dir/"patent_embeddings.npy") -> Tuple[Optional[np.ndarray], Optional[List[str]]]:
+    if not path.exists():
+        print("Embeddings not found; embedding features will be zero.")
         return None, None
-    
-    print(f"Loading embeddings from {embeddings_path}...")
-    embeddings = np.load(embeddings_path)
-    
-    # Load patent IDs
-    if ids_path_json.exists():
-        with open(ids_path_json, 'r') as f:
+    ids_json = emb_dir/"patent_ids.json"
+    ids_npy = emb_dir/"patent_ids.npy"
+    embeddings = np.load(path)
+    patent_ids: Optional[List[str]] = None
+    if ids_json.exists():
+        with ids_json.open("r") as f:
             patent_ids = json.load(f)
-        print(f"Loaded {len(patent_ids)} embeddings with dim {embeddings.shape[1]} (from JSON)")
-    elif ids_path_npy.exists():
-        patent_ids = np.load(ids_path_npy, allow_pickle=True).tolist()
-        print(f"Loaded {len(patent_ids)} embeddings with dim {embeddings.shape[1]} (from NPY)")
+    elif ids_npy.exists():
+        patent_ids = np.load(ids_npy, allow_pickle=True).tolist()
     else:
-        print("[WARN] Patent IDs not found. Will compute text-based features only.")
+        print("Embedding IDs not found; cannot align embeddings.")
         return None, None
-    
     return embeddings, patent_ids
 
 
-def compute_features_for_split(
-    pairs: List[dict],
-    patents: Dict[str, dict],
-    extractor: FeatureExtractor,
-    split_name: str
-) -> List[FeatureVector]:
-    """Compute features for a set of pairs."""
-    print(f"\nComputing features for {split_name} ({len(pairs)} pairs)...")
-    
-    feature_vectors = []
-    missing_patents = 0
-    
-    for pair in tqdm(pairs, desc=f"Processing {split_name}"):
-        pid1 = str(pair['patent_id_1'])
-        pid2 = str(pair['patent_id_2'])
-        label = pair.get('label', 0)
-        
-        patent1 = patents.get(pid1)
-        patent2 = patents.get(pid2)
-        
-        if patent1 is None or patent2 is None:
-            missing_patents += 1
+def compute_split_features(pairs: List[dict], patents: Dict[str, dict], extractor: FeatureExtractor):
+    rows = []
+    labels = []
+    missing = 0
+    for pair in tqdm(pairs, desc="Computing features"):
+        pid1 = str(pair["patent_id_1"])
+        pid2 = str(pair["patent_id_2"])
+        label = pair.get("label", 0)
+        p1, p2 = patents.get(pid1), patents.get(pid2)
+        if p1 is None or p2 is None:
+            missing += 1
             continue
-        
-        fv = extractor.extract_features(patent1, patent2, label=label)
-        feature_vectors.append(fv)
-    
-    if missing_patents > 0:
-        print(f"  [WARN] Skipped {missing_patents} pairs due to missing patents")
-    
-    print(f"  [OK] Computed {len(feature_vectors)} feature vectors")
-    return feature_vectors
+        fv = extractor.extract_features(p1, p2, label=label)
+        rows.append(fv.to_array(FeatureExtractor.BASE_FEATURE_NAMES))
+        labels.append(label)
+    if missing:
+        print(f"Skipped {missing} pairs due to missing patents")
+    X = np.array(rows)
+    y = np.array(labels)
+    return X, y
 
 
-def save_features(
-    feature_vectors: List[FeatureVector],
-    output_path: str,
-    feature_names: List[str]
-):
-    """Save features to numpy files."""
-    output_path = Path(output_path)
-    
-    # Convert to numpy
-    X = np.array([fv.to_array(feature_names) for fv in feature_vectors])
-    y = np.array([fv.label for fv in feature_vectors])
-    pair_ids = [(fv.patent_id_1, fv.patent_id_2) for fv in feature_vectors]
-    
-    # Save
-    np.save(output_path.with_suffix('.X.npy'), X)
-    np.save(output_path.with_suffix('.y.npy'), y)
-    
-    with open(output_path.with_suffix('.pairs.json'), 'w') as f:
-        json.dump(pair_ids, f)
-    
-    print(f"Saved features to {output_path}")
-    print(f"  X shape: {X.shape}")
-    print(f"  y shape: {y.shape}")
-    print(f"  Positive rate: {y.mean():.2%}")
+def summarize(name: str, X: np.ndarray, y: np.ndarray):
+    if X.size == 0:
+        print(f"{name}: no data")
+        return
+    print(f"{name}: {len(y)} samples, {X.shape[1]} features, positive rate {y.mean():.2%}")
+    for i, fname in enumerate(FeatureExtractor.BASE_FEATURE_NAMES):
+        col = X[:, i]
+        print(f"  {fname}: [{col.min():.3f}, {col.max():.3f}] mean={col.mean():.3f}")
 
 
 def main():
-    print("FEATURE COMPUTATION PIPELINE")
-    
-    # Create output directory
-    output_dir = Path('data/features')
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Load data
-    patents = load_patents_dict()
-    
-    # Load embeddings (if available)
-    embeddings, embedding_ids = load_embeddings()
-    
-    # Initialize feature extractor
-    extractor = FeatureExtractor()
-    
-    if embeddings is not None:
-        extractor.set_embeddings(embeddings, embedding_ids)
-        print("[OK] Embeddings loaded into feature extractor")
-    else:
-        print("[WARN] Running without embeddings - embedding features will be 0")
-    
-    # Load and process each split
-    splits = ['train', 'val', 'test']
-    all_feature_vectors = {}
-    
-    for split in splits:
-        pairs_path = f'data/training/{split}_pairs.jsonl'
-        
-        if not Path(pairs_path).exists():
-            print(f"[WARN] {pairs_path} not found, skipping...")
-            continue
-        
-        pairs = load_pairs(pairs_path)
-        feature_vectors = compute_features_for_split(
-            pairs, patents, extractor, split
-        )
-        all_feature_vectors[split] = feature_vectors
-        
-        # Save
-        save_features(
-            feature_vectors,
-            output_dir / f'{split}_features',
-            extractor.FEATURE_NAMES
-        )
-    
-    # Save feature names for reference
-    with open(output_dir / 'feature_names.json', 'w') as f:
-        json.dump(extractor.FEATURE_NAMES, f, indent=2)
-    
-    print("FEATURE COMPUTATION COMPLETE")
-    
-    # Summary statistics
-    for split, fvs in all_feature_vectors.items():
-        if not fvs:
-            continue
-        
-        X, y, _ = extractor.to_numpy(fvs)
-        print(f"\n{split.upper()} set:")
-        print(f"  Samples: {len(fvs)}")
-        print(f"  Features: {X.shape[1]}")
-        print(f"  Positive rate: {y.mean():.2%}")
-        
-        # Feature statistics
-        print(f"  Feature ranges:")
-        for i, name in enumerate(extractor.FEATURE_NAMES):
-            col = X[:, i]
-            print(f"    {name}: [{col.min():.3f}, {col.max():.3f}] mean={col.mean():.3f}")
+    patents = load_patents()
+    embeddings, ids = load_embeddings()
 
+    extractor = FeatureExtractor()
+    if embeddings is not None and ids is not None:
+        extractor.set_embeddings(embeddings, ids)
+        print("Embeddings loaded into feature extractor")
+    else:
+        print("Running without embeddings")
+
+    for split in splits:
+        path = data_dir/"training"/f"{split}_pairs.jsonl"
+        if not path.exists():
+            print(f"{path} missing; skipping.")
+            continue
+        pairs = load_pairs(path)
+        X, y = compute_split_features(pairs, patents, extractor)
+        summarize(split.upper(), X, y)
+
+    print("Feature computation complete (no files written).")
 
 if __name__ == "__main__":
     main()

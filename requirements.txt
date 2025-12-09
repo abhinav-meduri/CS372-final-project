@@ -1,4 +1,4 @@
-# Patent Novelty Assessment System - Dependencies
+# 
 # Python 3.9+ recommended
 
 # Core ML & Data Processing
@@ -21,18 +21,9 @@ rank-bm25>=0.2.2
 # NLP & Text Processing
 nltk>=3.8.0
 
-# LLM Integration (Local Phi-3)
-accelerate>=0.25.0
-bitsandbytes>=0.41.0  # For 4-bit quantization (CUDA only)
-
-# LoRA Fine-tuning
-peft>=0.7.0  # Parameter-Efficient Fine-Tuning
-trl>=0.7.0   # Transformers Reinforcement Learning (for RLHF)
-datasets>=2.15.0
-
-# Optional: API-based LLMs (if needed)
-openai>=1.0.0
-anthropic>=0.7.0
+# LLM Integration (Local Phi-3 via Ollama)
+# Note: Ollama must be installed separately (brew install ollama)
+# No Python packages needed for Ollama - uses HTTP API via requests
 
 # Web Application
 streamlit>=1.28.0
@@ -47,14 +38,23 @@ tqdm>=4.66.0
 orjson>=3.9.0  # Fast JSON parser (2-3x faster than standard json)
 python-dotenv>=1.0.0
 requests>=2.31.0
-
-# Optional: Online Patent Search (SerpAPI)
-google-search-results>=2.4.2  # For Google Patents search via SerpAPI
-
-# File Handling
 pyyaml>=6.0.0
+
+# Online Patent Search (SerpAPI)
+google-search-results>=2.4.2  # For Google Patents search via SerpAPI
 
 # Jupyter Support (optional, for notebooks)
 jupyter>=1.0.0
 ipykernel>=6.25.0
-accelerate>=0.26.0
+
+# Optional: Advanced LLM Features (not required for basic functionality)
+# Uncomment if you need these features:
+# accelerate>=0.25.0  # For model acceleration
+# bitsandbytes>=0.41.0  # For 4-bit quantization (CUDA only)
+# peft>=0.7.0  # Parameter-Efficient Fine-Tuning
+# trl>=0.7.0   # Transformers Reinforcement Learning (for RLHF)
+# datasets>=2.15.0  # HuggingFace datasets
+
+# Optional: API-based LLMs (not used in production)
+# openai>=1.0.0  # For OpenAI API (not used - using local Phi-3)
+# anthropic>=0.7.0  # For Anthropic API (not used - using local Phi-3)

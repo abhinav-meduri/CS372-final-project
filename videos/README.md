@@ -44,3 +44,4 @@ videos/technical_walkthrough.mp4
 
 *This directory structure is required for CS 372 final project submission.*
 
+

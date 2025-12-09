@@ -2,7 +2,8 @@
 
 ## Selected Rubric Items with Evidence
 
-Total Points: 121
+**Total Items:** 15  
+**Total Points:** 99
 
 ---
 
@@ -25,14 +26,15 @@ Total Points: 121
 - Local retrieval: PatentSBERTa embeddings for 200K patents using cosine similarity
 - Online retrieval: SerpAPI integration for Google Patents search
 - Generation: Phi-3 LLM generates novelty explanations from retrieved documents
-- Complete pipeline: Query → Embedding → Retrieval (local + online) → Ranking → Explanation generation
+- Complete pipeline: Query -> Embedding -> Retrieval (local + online) -> Ranking -> Explanation generation
 
 **Files:**
 - `src/app/patent_analyzer.py` (lines 75-432) - RAG orchestration and retrieval logic
 - `src/app/phi3_explainer.py` (lines 26-199) - LLM-based generation component
 - `data/api/online_search.py` - SerpAPI integration for online retrieval
-- `data/embeddings/patent_embeddings.npy` - Local retrieval database (200K embeddings)
-- `app.py` - Production RAG deployment
+- `data/embeddings/patent_embeddings.npy` - Local retrieval database (200K embeddings, 586MB, available via Duke Box)
+- `app.py` - RAG deployment in Streamlit
+- `notebooks/pipeline.ipynb` - Complete RAG pipeline demonstration with execution outputs
 
 ---
 
@@ -43,7 +45,7 @@ Total Points: 121
 - Interactive multi-tab interface (Novelty Assessment, Prior Art Search)
 - Real-time analysis with status updates
 - Report downloads (TXT, JSON formats)
-- Production deployment with error handling and user feedback
+- Deployment with error handling and user feedback
 
 **Files:**
 - `app.py` (804 lines) - Complete Streamlit application
@@ -59,14 +61,16 @@ Total Points: 121
 - Stage 2: Feature extraction combines embeddings with metadata to create 10 engineered features
 - Stage 3: PyTorch neural network produces novelty scores from features
 - Stage 4: Phi-3 LLM generates explanations conditioned on novelty scores
-- Complete data flow: Raw text → Embeddings → Features → Classification scores → Text explanations
+- Complete data flow: Raw text -> Embeddings -> Features -> Classification scores -> Text explanations
 
 **Files:**
-- `src/app/patent_analyzer.py` (lines 294-500) - Multi-stage pipeline orchestration
-- `src/features/feature_extract.py` - Feature engineering from embeddings
-- `src/app/pytorch_classifier.py` - PyTorch classification model
-- `src/app/phi3_explainer.py` - Conditional text generation based on scores
-- `scripts/data/preprocessing/generate_embeddings.py` - Stage 1 implementation
+- `src/app/patent_analyzer.py` (lines 294-500) - Multi-stage pipeline orchestration connecting all 4 stages
+- `src/embeddings/patent_sberta.py` (292 lines) - Stage 1: PatentSBERTa transformer embeddings
+- `src/features/feature_extract.py` (160 lines) - Stage 2: Feature engineering from embeddings
+- `src/app/pytorch_classifier.py` (502 lines) - Stage 3: PyTorch neural network classification
+- `src/app/phi3_explainer.py` (319 lines) - Stage 4: Conditional text generation based on scores
+- `scripts/data/preprocessing/generate_embeddings.py` - Batch processing for Stage 1 (200K patents)
+- `notebooks/pipeline.ipynb` - Complete end-to-end demonstration with execution outputs
 
 ---
 
@@ -80,10 +84,11 @@ Total Points: 121
 - System makes autonomous decisions about API calls and tool usage based on model outputs
 
 **Files:**
-- `src/app/patent_analyzer.py` (lines 320-407) - LLM outputs trigger SerpAPI tool calls
-- `data/api/online_search.py` - Automated API integration
-- `src/app/phi3_explainer.py` (lines 76-157) - Score-based prompt adaptation
-- `app.py` (lines 420-443) - Score-based recommendation logic
+- `src/app/patent_analyzer.py` (lines 320-407) - LLM keyword extraction output triggers SerpAPI tool calls
+- `data/api/online_search.py` (239 lines) - Automated Google Patents API integration
+- `src/app/phi3_explainer.py` (lines 76-157) - Score-based prompt adaptation and tool usage decisions
+- `app.py` (lines 420-443) - Score-based recommendation logic (novelty thresholds)
+- `notebooks/pipeline.ipynb` - Demonstrates agentic behavior with SerpAPI tool calls triggered by LLM
 
 ---
 
@@ -92,14 +97,15 @@ Total Points: 121
 **Evidence:**
 - PatentSBERTa: Transformer-based BERT model for patent text embeddings (200K patents embedded)
 - Phi-3: Transformer LLM for explanation generation via Ollama
-- Both models integrated into production pipeline with domain-specific usage
+- Both models integrated into pipeline with domain-specific usage
 
 **Files:**
 - `src/app/patent_analyzer.py` (lines 134-159) - PatentSBERTa loading and inference
 - `src/app/phi3_explainer.py` - Phi-3 transformer for text generation
 - `scripts/data/preprocessing/generate_embeddings.py` (lines 59-86) - Batch PatentSBERTa inference
 - `src/features/claim_embeddings.py` - Transformer embeddings for patent claims
-- `data/embeddings/patent_embeddings.npy` - 200K transformer-generated embeddings
+- `data/embeddings/patent_embeddings.npy` - 200K transformer-generated embeddings (586MB, available via Duke Box)
+- `notebooks/pipeline.ipynb` - Demonstrates both transformers with execution outputs
 
 ---
 
@@ -113,9 +119,10 @@ Total Points: 121
 - Best configuration selected based on mean CV ROC-AUC score
 
 **Files:**
-- `scripts/evaluation/tuning/nn_tuning.py` - Hyperparameter tuning script with CV
-- `results/hyperparameter_tuning/pytorch/pytorch_hyperparameter_results.json` - All 54 configurations with CV scores
-- `src/app/pytorch_classifier.py` - Production model using tuned hyperparameters
+- `scripts/evaluation/tuning/nn_tuning.py` (423 lines) - Hyperparameter tuning script with 3-fold CV
+- `results/hyperparameter_tuning/pytorch_tuning.json` - All 54 configurations with CV scores and statistics
+- `src/app/pytorch_classifier.py` - Final model using best hyperparameters: hidden_dims=[256, 128], dropout=0.3, lr=0.002
+- `notebooks/pytorch_classifier.ipynb` - Training notebook showing hyperparameter selection process
 
 ---
 
@@ -125,14 +132,15 @@ Total Points: 121
 - L2 Regularization: weight_decay=1e-05 in AdamW optimizer
 - Dropout: dropout=0.3 applied in all hidden layers via ResidualBlock
 - Early Stopping: patience=15 epochs with validation loss monitoring
-- All three techniques used in production PyTorch model
+- All three techniques used in final PyTorch model
 
 **Files:**
 - `src/app/pytorch_classifier.py`:
-  - Line 154, 174, 282: L2 weight decay parameter
-  - Lines 41-45, 64, 102: Dropout layer implementations
-  - Lines 159-160, 296-298, 346-356: Early stopping implementation
-- `results/hyperparameter_tuning/pytorch/pytorch_hyperparameter_results.json` - Tuning results showing regularization effectiveness
+  - Lines 282-283: L2 weight decay in AdamW optimizer (`weight_decay=1e-05`)
+  - Lines 44-45, 64, 102: Dropout layer implementations (`nn.Dropout(dropout)`)
+  - Lines 296-298, 346-356: Early stopping with patience=15 epochs
+- `results/hyperparameter_tuning/pytorch_tuning.json` - Shows impact of dropout rates (0.1, 0.2, 0.3) on CV performance
+- `results/plots/pytorch/training_curve.png` - Visualizes early stopping behavior
 
 ---
 
@@ -153,34 +161,16 @@ Total Points: 121
 - Features extracted for all 59,114 training pairs
 
 **Files:**
-- `src/features/feature_extract.py` (160 lines) - Complete feature extraction pipeline
-- `src/features/claim_embeddings.py` - Claim-level embedding features
-- `scripts/data/preprocessing/compute_features.py` - Batch feature computation
-- `data/features/feature_names_v2.json` - Feature definitions
-- `data/features/train_features_v2.X.npy` - Computed feature matrices (59K samples)
+- `src/features/feature_extract.py` (160 lines) - Complete feature extraction pipeline with all 10 features
+- `src/features/claim_embeddings.py` - Claim-level embedding features (max claim similarity)
+- `scripts/data/preprocessing/compute_features.py` - Batch feature computation for 57K pairs
+- `data/features/feature_names_v2.json` - Feature name definitions (10 features after ablation)
+- `data/features/train_features_v2.X.npy` - Training feature matrix (39,979 × 10)
+- `data/features/val_features_v2.X.npy` - Validation feature matrix (8,567 × 10)
+- `data/features/test_features_v2.X.npy` - Test feature matrix (8,568 × 10)
 
 ---
 
-## 10. Conducted ablation study demonstrating impact of at least two design choices with quantitative comparison (5 pts)
-
-**Evidence:**
-- 5 ablation experiments removing different feature groups
-- Quantitative comparison showing performance impact:
-  - All Features: ROC-AUC = 0.9688
-  - Without embedding: ROC-AUC = 0.9321 (3.67% drop)
-  - Without text similarity: ROC-AUC = 0.9317 (3.71% drop)
-  - Without metadata: ROC-AUC = 0.9233 (4.55% drop)
-  - Without claim features: ROC-AUC = 0.9337 (3.51% drop)
-- Results demonstrate embeddings and metadata are critical features
-
-**Files:**
-- `results/analysis/ablation_study/ablation_results.json` - Full quantitative results for all experiments
-- `results/plots/ablation/ablation_study_comparison.png` - Visual comparison
-- `scripts/evaluation/run_ablation_study.py` - Ablation experiment implementation
-- `scripts/evaluation/plots/plot_ablation.py` - Results visualization
-- `README.md` (lines 96-113) - Ablation study results table
-
----
 
 ## 11. Compared multiple model architectures or approaches quantitatively (5 pts)
 
@@ -191,14 +181,16 @@ Total Points: 121
   3. Logistic Regression: 96.7% ROC-AUC
   4. Cosine Similarity Heuristic: 91.7% ROC-AUC
   5. MLP Classifier: 94.5% ROC-AUC
-  6. PyTorch Neural Net: 97.2% ROC-AUC (production model)
+  6. PyTorch Neural Net: 97.2% ROC-AUC (final model)
 - PyTorch model demonstrates 2.7% improvement over MLP baseline
 
 **Files:**
-- `results/plots/baseline/baseline_results.json` - Quantitative comparison results
-- `results/plots/baseline/baseline_comparison.png` - Visual comparison
-- `scripts/evaluation/plots/plot_baseline_comparison.py` - Comparison implementation
-- `README.md` (lines 86-94) - Baseline comparison table
+- `results/metrics/baseline_comparison.json` - Quantitative comparison results with all 6 model metrics
+- `results/plots/baseline/baseline_comparison.png` - Visual bar chart comparing all models
+- `scripts/plots/plot_baseline_comparison.py` - Comparison implementation and visualization
+- `results/metrics/mlp_metrics.json` - MLP baseline: 94.5% ROC-AUC
+- `results/metrics/pytorch_metrics.json` - PyTorch final: 97.2% ROC-AUC
+- `README.md` (Model Comparison section) - Baseline comparison table with all metrics
 
 ---
 
@@ -216,27 +208,29 @@ Total Points: 121
   - Lines 26-66: Custom ResidualBlock class
   - Lines 69-139: Custom PatentNoveltyNet architecture
   - Lines 142-502: Complete PyTorchPatentClassifier training implementation
-- `models/pytorch_model.pt` - Trained model weights
-- `results/plots/pytorch/training_curve.png` - Training curves
+- `models/pytorch_nn/pytorch_model.pt` - Trained model weights (~2 MB, available via Duke Box)
+- `models/pytorch_nn/scaler_pytorch.pkl` - Feature scaler (~20 KB, available via Duke Box)
+- `results/plots/pytorch/training_curve.png` - Training curves visualization
+- `notebooks/pytorch_classifier.ipynb` - Training notebook with execution outputs
 
 ---
 
 ## 13. Implemented preprocessing pipeline handling data quality issues (5 pts)
 
 **Evidence:**
-- Handles missing abstract/title/claim data with fallbacks
-- Processes inconsistent patent formats across multiple years (2021-2025)
-- Normalizes patent IDs and dates from multiple sources
-- Filters empty or malformed patents
-- Handles class imbalance through balanced pair sampling
-- Standardizes features using StandardScaler
+- **Missing Data:** Fallback logic for missing abstracts/titles/claims (abstract -> summary -> claims -> empty string)
+- **Class Imbalance:** Balanced pair generation (28,557 positive + 28,557 negative pairs, ratio=0.5)
+- **Text Extraction:** Handles inconsistent patent formats across 5 years (2021-2025)
+- **Normalization:** StandardScaler for feature standardization (fit on train, transform on val/test)
+- **Filtering:** Removes empty or malformed patents during embedding generation
+- **Impact:** Enables training on clean, balanced dataset with 91.73% accuracy
 
 **Files:**
-- `scripts/data/preprocessing/compute_features.py` (lines 24-112) - Preprocessing with missing data handling
-- `scripts/data/preprocessing/generate_embeddings.py` (lines 32-56) - Text extraction with fallbacks
-- `scripts/training/extract_citation_pairs.py` (lines 85-202) - Balanced pair generation
-- `src/app/pytorch_classifier.py` (lines 263-265) - StandardScaler for feature normalization
-- `data/processed/processing_stats.json` - Processing statistics
+- `scripts/data/preprocessing/generate_embeddings.py` (lines 32-56) - Text extraction with missing data fallbacks
+- `scripts/training/extract_citation_pairs.py` (lines 64-113) - Balanced negative pair generation for class imbalance
+- `src/app/pytorch_classifier.py` (lines 263-265) - StandardScaler implementation
+- `data/training/dataset_stats.json` - Shows balanced pairs: `"positive_ratio": 0.5`
+- `data/processed/processing_stats.json` - Processing statistics and data quality metrics
 
 ---
 
@@ -247,49 +241,38 @@ Total Points: 121
 - Cosine similarity for semantic retrieval of similar patents
 - Real-time query embedding for similarity search
 - Embedding-based features (cosine similarity, embedding difference statistics)
-- Production retrieval returns top-k most similar patents based on embedding cosine distance
+- Retrieval system returns top-k most similar patents based on embedding cosine distance
 
 **Files:**
 - `scripts/data/preprocessing/generate_embeddings.py` - Embedding generation for 200K patents
-- `data/embeddings/patent_embeddings.npy` - 200K pre-computed embeddings
-- `data/embeddings/patent_ids.json` - Embedding to patent ID mapping
-- `src/app/patent_analyzer.py` (lines 341-342) - Cosine similarity retrieval
-- `src/features/feature_extract.py` (lines 118-125, 147-157) - Embedding-based features
+- `data/embeddings/patent_embeddings.npy` - 200K pre-computed embeddings (586MB, available via Duke Box)
+- `data/embeddings/patent_ids.json` - Embedding to patent ID mapping (2.3MB, available via Duke Box)
+- `data/embeddings/embedding_metadata.json` - Documents embedding generation (11.1 hours processing time)
+- `src/app/patent_analyzer.py` (lines 633-662) - Cosine similarity retrieval implementation
+- `src/features/feature_extract.py` (lines 118-125, 147-157) - Embedding-based feature extraction
 
 ---
 
-## 15. Implemented production-grade deployment with multiple considerations (10 pts)
+## 15. Used at least three distinct and appropriate evaluation metrics for your task (3 pts)
 
 **Evidence:**
-- **Caching:** `@st.cache_resource` decorator for analyzer loading to prevent redundant model loading (performance optimization)
-- **Error Handling:** Comprehensive try-except blocks throughout app with graceful error messages to users (reliability)
-- **Logging:** Extensive print statements and error tracking for debugging and monitoring (147+ log statements across app)
-- **Status Updates:** Real-time status callbacks during analysis to inform users of progress (user experience)
-- **Session State Management:** Proper state handling to preserve results across Streamlit reruns (stateful operations)
-- All five production considerations implemented in deployed web application
-
-**Justification:**
-The rubric states this item is for "production-grade deployment (evidence of at least two considerations such as rate limiting, caching, monitoring, error handling, logging)." This project qualifies because:
-- Localhost deployment is still production-grade if it demonstrates production practices
-- The rubric focuses on implementation quality, not hosting infrastructure
-- Five production considerations implemented (only needed two)
-- System is functional, reliable, and handles real user interactions
-- `SETUP.md` provides complete deployment instructions for running locally
+- Seven evaluation metrics used to assess model performance:
+  1. **Accuracy** - Overall correctness (91.73% on test set)
+  2. **Precision** - Positive prediction reliability (92.94%)
+  3. **Recall** - True positive detection rate (90.17%)
+  4. **F1 Score** - Harmonic mean of precision/recall (91.54%)
+  5. **ROC-AUC** - Ranking quality (97.17%)
+  6. **Recall@K** - Retrieval effectiveness (R@10: 99.9%)
+  7. **MRR (Mean Reciprocal Rank)** - Average rank of first relevant result (0.9996)
+- Metrics appropriate for binary classification and information retrieval tasks
+- Results documented across multiple JSON files
 
 **Files:**
-- `app.py`:
-  - Line 28: `@st.cache_resource` for model caching
-  - Lines 638-685: Error handling for novelty analysis with user-friendly error messages
-  - Lines 786-790: Error handling for search functionality
-  - Lines 611-618, 743-751: Status callback implementation for real-time updates
-  - Lines 547-586: Configuration management with session state
-- `src/app/patent_analyzer.py`:
-  - Lines 134-259: Error handling in load() method with status callbacks
-  - Lines 260-292: Error handling in analyze() with fallback logic
-- `src/app/pytorch_classifier.py`:
-  - Lines 22-23: Logging configuration
-  - Lines 294-364: Status logging during training
-- `SETUP.md` - Complete deployment instructions
+- `results/metrics/pytorch_metrics.json` - Contains accuracy, precision, recall, F1, ROC-AUC
+- `results/metrics/mlp_metrics.json` - Baseline model metrics for comparison
+- `results/metrics/recall_mrr.json` - Retrieval metrics (Recall@K, MRR)
+- `results/metrics/additional_metrics.json` - Brier score and log loss
+- `notebooks/pytorch_classifier.ipynb` - Displays all metrics in execution outputs
 
 ---
 
@@ -302,52 +285,58 @@ The rubric states this item is for "production-grade deployment (evidence of at 
 - Trained PyTorch neural network on 39,979 training samples (48,546 samples used in 3-fold CV during hyperparameter tuning)
 - All processing completed with batch processing and memory-efficient pipelines
 
-**Files:**
-- `data/sampled/patents_sampled.jsonl` - 200,000 patents (verified via wc -l)
-- `data/sampled/sampling_metadata.json` - Documents 200K total with stratified year distribution
-- `data/embeddings/patent_embeddings.npy` - 200K embeddings successfully generated
-- `data/training/dataset_stats.json` - 57,114 training pairs (39,979 train + 8,567 val + 8,568 test)
-- `scripts/data/preprocessing/generate_embeddings.py` - Batch processing of 200K patents
-- `scripts/training/extract_citation_pairs.py` - Large-scale citation extraction from 100M+ records
-- `results/hyperparameter_tuning/pytorch/pytorch_hyperparameter_results.json` - Training on full dataset
-- `ATTRIBUTION.md` (line 14) - Documents 200K patent corpus
+**Files and Verification:**
+- `data/sampled/patents_sampled.jsonl` - **200,000 patents** (verified: `wc -l` returns exactly 200000 lines, file size 3.8GB, available via Duke Box - see `SETUP.md`)
+- `data/sampled/sampling_metadata.json` - Documents `"total_sampled": 200000` with stratified year distribution (40K per year × 5 years)
+- `data/embeddings/patent_embeddings.npy` - **Shape: (200000, 768)** verified via `np.load().shape`, file size 586MB (available via Duke Box - see `SETUP.md`)
+- `data/embeddings/patent_ids.json` - **200,000 unique patent IDs** (verified: `len(json.load()) = 200000`, file size 2.3MB, available via Duke Box)
+- `data/embeddings/embedding_metadata.json` - Documents `"num_patents": 200000` with 11.1 hours processing time (40,110 seconds)
+- `data/training/dataset_stats.json` - 57,114 training pairs (39,979 train + 8,567 val + 8,568 test) with balanced positive/negative ratio
+- `models/pytorch_nn/pytorch_model.pt` - Trained on 39,979 samples (~2 MB, available via Duke Box)
+- `models/pytorch_nn/scaler_pytorch.pkl` - Feature scaler (~20 KB, available via Duke Box)
+- `notebooks/pipeline.ipynb` (line 115) - Live execution output: "Loaded 200,000 embeddings"
+- `scripts/data/preprocessing/generate_embeddings.py` - Batch processing implementation for 200K patents
+- `scripts/training/extract_citation_pairs.py` - Large-scale citation extraction from 100M+ citation records
+- `ATTRIBUTION.md` (line 14) - Documents 200K patent corpus source
+- `SETUP.md` (lines 83-232) - Duke Box download instructions for all large data/model files
+- `README.md` - Documents hybrid RAG architecture using 200K patent database
 
----
+**Verification Commands:**
+```bash
+# Patent count verification
+$ wc -l data/sampled/patents_sampled.jsonl
+200000 data/sampled/patents_sampled.jsonl
 
-## 17. Collected or constructed original dataset through substantial engineering effort with documented methodology (10 pts)
+# Embeddings shape verification
+$ python -c "import numpy as np; print(np.load('data/embeddings/patent_embeddings.npy', mmap_mode='r').shape)"
+(200000, 768)
 
-**Evidence:**
-- 200,000 patents collected from PatentsView API (2021-2025) across multiple years
-- 57,114 training pairs extracted from 100M+ citation records (10GB TSV file)
-- Citation-based positive pair generation (patents that cite each other are similar)
-- Random negative pair sampling with de-duplication to prevent data leakage
-- Multi-stage preprocessing pipeline handling inconsistent patent data formats across years
-- Stratified train/validation/test splits (70% / 15% / 15%) with balanced class distribution
-- Documented methodology in scripts and metadata files
-
-**Justification:**
-The rubric states this item is for datasets collected through "substantial engineering effort (e.g., API integration, web scraping, manual annotation/labeling, custom curation) with documented methodology." This project qualifies because:
-- API integration with PatentsView to download 100GB+ of raw patent data
-- Custom curation: Processing 5 years of data, filtering, sampling 200K patents
-- Engineering effort: Handling inconsistent formats, missing data, extracting citations from 100M+ records
-- Documented: All processing steps documented in scripts with metadata files tracking statistics
-
-**Files:**
-- `scripts/training/extract_citation_pairs.py` (224 lines) - Citation extraction from 10GB TSV file scanning 100M+ rows
-- `scripts/data/preprocessing/generate_embeddings.py` - Batch embedding generation for 200K patents
-- `scripts/data/preprocessing/compute_features.py` - Feature computation pipeline
-- `scripts/training/sample_diverse_patents.py` - Stratified sampling across years
-- `data/sampled/patents_sampled.jsonl` - 200,000 curated patents
-- `data/training/train_pairs.jsonl`, `val_pairs.jsonl`, `test_pairs.jsonl` - 57,114 pairs with splits
-- `data/citations/g_us_patent_citation.tsv` - 10GB raw citation data
-- `data/training/dataset_stats.json` - Dataset statistics and split ratios
-- `data/sampled/sampling_metadata.json` - Sampling methodology documentation
+# Patent IDs count verification
+$ python -c "import json; print(len(json.load(open('data/embeddings/patent_ids.json'))))"
+200000
+```
 
 ---
 
 ## Summary
 
-Total Points: 121
+**Total Rubric Items Completed:** 15
 
-This exceeds the 70-point requirement by 51 points, with all evidence based on production implementation and clearly documented in the codebase.
+**Total Points Earned:** 99
+- Item 1: 10 points (Solo project)
+- Item 2: 10 points (RAG system)
+- Item 3: 10 points (Web application)
+- Item 4: 7 points (Multi-stage pipeline)
+- Item 5: 7 points (Agentic system)
+- Item 6: 7 points (Transformer models)
+- Item 7: 5 points (Hyperparameter tuning)
+- Item 8: 5 points (Regularization)
+- Item 9: 5 points (Feature engineering)
+- Item 11: 5 points (Model comparison)
+- Item 12: 5 points (Custom PyTorch architecture)
+- Item 13: 5 points (Preprocessing pipeline)
+- Item 14: 5 points (Sentence embeddings)
+- Item 15: 3 points (3+ evaluation metrics)
+- Item 16: 10 points (Large dataset >100K)
 
+This exceeds the 70-point requirement by 29 points, with all evidence based on working implementation and clearly documented in the codebase.

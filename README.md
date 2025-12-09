@@ -13,22 +13,36 @@ In this project, I explored patent prior-art retrieval and novelty assessment ac
 ## Quick Start
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/abhinavmeduri/CS372-final-project.git
 cd CS372-final-project
-python -m venv venv
-source venv/bin/activate
 
+# 2. Set up Python environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Download data from Box: https://duke.box.com/s/4y6mjf1965d15gnltnkqnk0dkedbttqh
-# Extract and place in data/ and models/ (see SETUP.md)
+# 3. Download required data files (~7 GB) from Duke Box
+# Go to: https://duke.box.com/s/4y6mjf1965d15gnltnkqnk0dkedbttqh
+# Extract and place files as follows:
+#   - patent_embeddings.npy -> data/embeddings/
+#   - patent_ids.json -> data/embeddings/
+#   - patents_sampled.jsonl -> data/sampled/
+#   - pytorch_model.pt -> models/pytorch_nn/
+#   - scaler_pytorch.pkl -> models/pytorch_nn/
+# (See SETUP.md for detailed instructions)
 
-brew install ollama
+# 4. Install and configure Ollama (for LLM explanations)
+brew install ollama                    # macOS
+# OR: curl -fsSL https://ollama.ai/install.sh | sh  # Linux
 brew services start ollama
 ollama pull phi3
 
+# 5. Set your SerpAPI key (for online patent search)
 export SERPAPI_KEY=your_serpapi_key_here
+# Get free API key from: https://serpapi.com/ (100 searches/month)
 
+# 6. Run the application
 streamlit run app.py
 ```
 
@@ -36,10 +50,43 @@ For complete setup instructions, see [SETUP.md](SETUP.md).
 
 ---
 
-## Video Links
+## Required Data Files
 
-- **Demo Video:** `[INSERT LINK HERE]`
-- **Technical Walkthrough:** `[INSERT LINK HERE]`
+**IMPORTANT:** This repository does **NOT** include the large data files (~7 GB) required to run the application due to GitHub size limits.
+
+**You MUST download these files from Duke Box:**
+
+**[Download Required Data Files (Duke Box)](https://duke.box.com/s/4y6mjf1965d15gnltnkqnk0dkedbttqh)**
+
+**What's included:**
+- `patent_embeddings.npy` (~3.2 GB) - 200K pre-computed PatentSBERTa embeddings
+- `patent_ids.json` (~15 MB) - Patent ID to embedding index mappings
+- `patents_sampled.jsonl` (~3.8 GB) - Patent metadata database (200K patents from 2021-2025)
+- `pytorch_model.pt` (~2 MB) - Trained PyTorch neural network classifier
+- `scaler_pytorch.pkl` (~20 KB) - Feature normalization scaler
+
+**File placement after download:**
+```
+CS372-final-project/
+  data/
+    embeddings/
+      patent_embeddings.npy    (Place here - 3.2 GB)
+      patent_ids.json          (Place here - 15 MB)
+    sampled/
+      patents_sampled.jsonl    (Place here - 3.8 GB)
+  models/
+    pytorch_nn/
+      pytorch_model.pt         (Place here - 2 MB)
+      scaler_pytorch.pkl       (Place here - 20 KB)
+```
+
+See [SETUP.md](SETUP.md) for detailed extraction and placement instructions.
+
+---
+
+## Video
+
+Watch the [Demo Video and Technical Walkthrough](https://drive.google.com/drive/folders/12FspQzWt7QM_nqvoML0M5z0BfGV2CLUY?usp=sharing) for a complete demonstration of the system and explanation of the technical implementation.
 
 ---
 

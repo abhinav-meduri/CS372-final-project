@@ -1,19 +1,5 @@
 """
-Unified Patent Analyzer
-
-Handles all input modalities:
-
-1. Novelty Assessment - Is this patent/idea novel?
-
-2. Prior Art Search - Find patents related to X
-
-3. Document Analysis - Upload and analyze a document
-
-Integrates:
-
-- PatentSBERTa embeddings
-
-- MLP similarity scoring
+Unified patent analyzer that integrates PatentSBERTa embeddingsMLP similarity scoring
 
 - Phi-3 explanations
 

@@ -2,6 +2,10 @@
 
 Follow these steps to run the Patent Novelty Assessment System locally from start to finish.
 
+## Video Tutorial
+
+Watch the [Demo Video and Technical Walkthrough](https://drive.google.com/drive/folders/12FspQzWt7QM_nqvoML0M5z0BfGV2CLUY?usp=sharing) for a complete demonstration of the setup process and system usage.
+
 ## Prerequisites
 
 ### System Requirements
@@ -11,10 +15,18 @@ Follow these steps to run the Patent Novelty Assessment System locally from star
 - macOS, Linux, or Windows
 - Internet connection for initial setup (downloading dependencies and models)
 
-### Required Accounts/Keys
-- **SerpAPI key** for online patent search via Google Patents
-  - Sign up at https://serpapi.com/ (free tier available with 100 searches/month)
-  - Required for hybrid retrieval with online search capability
+### Required API Keys
+
+**SerpAPI Key (for Online Patent Search)**
+
+The system uses SerpAPI to search Google Patents online, complementing the local 200K patent database.
+
+- **Sign up:** https://serpapi.com/ (free tier: 100 searches/month)
+- **Get API key:** After signing up, go to Dashboard -> API Key
+- **Usage:** The app makes 5-10 API calls per analysis (one per search term)
+- **Optional:** The app works without SerpAPI (local search only), but online search significantly improves coverage
+
+**Note:** You can run the app without SerpAPI, but you'll only search the local 200K patents (2021-2025). Online search extends coverage to millions of patents via Google Patents.
 
 ## Installation
 
@@ -77,9 +89,13 @@ You should see a JSON response listing available models including `phi3`.
 
 ## Data Setup
 
-The application requires several large data files that are not included in the repository due to size constraints. These files are essential for the application to run.
+**IMPORTANT: Required Data Files**
 
-### Download Required Files from Box
+The application requires several large data files (~7 GB total) that are **NOT included in the Git repository** due to size constraints. These files are **ESSENTIAL** for the application to run. You **MUST** download them from Duke Box and place them in the correct directories before running the app.
+
+**Without these files, the app will fail with "File not found" errors.**
+
+### Download Required Files from Duke Box
 
 **[Download Required Data Files from Duke Box](https://duke.box.com/s/4y6mjf1965d15gnltnkqnk0dkedbttqh)**
 
@@ -89,6 +105,21 @@ The application requires several large data files that are not included in the r
 - Patent embeddings and metadata (~7 GB total)
 - Trained model files (~2 MB)
 - Package size: ~4-5 GB compressed, ~7-8 GB uncompressed
+
+**Quick Reference: File Placement**
+
+| File from Duke Box | Size | Destination in Repository | Required? |
+|-------------------|------|---------------------------|-----------|
+| `patent_embeddings.npy` | ~3.2 GB | `data/embeddings/` | REQUIRED |
+| `patent_ids.json` | ~15 MB | `data/embeddings/` | REQUIRED |
+| `patents_sampled.jsonl` | ~3.8 GB | `data/sampled/` | REQUIRED |
+| `pytorch_model.pt` | ~2 MB | `models/pytorch_nn/` | REQUIRED |
+| `scaler_pytorch.pkl` | ~20 KB | `models/pytorch_nn/` | REQUIRED |
+| `training_history_pytorch.json` | ~5 KB | `models/pytorch_nn/` | Optional |
+| `embedding_metadata.json` | ~1 KB | `data/embeddings/` | Optional |
+| `mlp_model.pkl` | ~100 KB | `models/mlp/` | Optional |
+| `scaler.pkl` | ~20 KB | `models/mlp/` | Optional |
+| `mlp_metrics.json` | ~1 KB | `models/mlp/` | Optional |
 
 ### What's Included in the Box Download
 
@@ -133,31 +164,70 @@ mkdir -p models/pytorch_nn
 
 **Step 3: Move Files to Appropriate Locations**
 
-From the extracted Box download folder, move files to their correct locations:
+From the extracted Duke Box download folder, move each file to its correct location in your repository:
 
+**REQUIRED FILES (must be placed correctly for app to work):**
+
+1. **Patent Embeddings** (~3.2 GB):
+   ```bash
+   mv path/to/extracted/patent_embeddings.npy data/embeddings/patent_embeddings.npy
+   ```
+   **Destination:** `CS372-final-project/data/embeddings/patent_embeddings.npy`
+
+2. **Patent ID Mappings** (~15 MB):
+   ```bash
+   mv path/to/extracted/patent_ids.json data/embeddings/patent_ids.json
+   ```
+   **Destination:** `CS372-final-project/data/embeddings/patent_ids.json`
+
+3. **Patent Database** (~3.8 GB):
+   ```bash
+   mv path/to/extracted/patents_sampled.jsonl data/sampled/patents_sampled.jsonl
+   ```
+   **Destination:** `CS372-final-project/data/sampled/patents_sampled.jsonl`
+
+4. **Trained PyTorch Model** (~2 MB):
+   ```bash
+   mv path/to/extracted/pytorch_model.pt models/pytorch_nn/pytorch_model.pt
+   ```
+   **Destination:** `CS372-final-project/models/pytorch_nn/pytorch_model.pt`
+
+5. **Feature Scaler** (~20 KB):
+   ```bash
+   mv path/to/extracted/scaler_pytorch.pkl models/pytorch_nn/scaler_pytorch.pkl
+   ```
+   **Destination:** `CS372-final-project/models/pytorch_nn/scaler_pytorch.pkl`
+
+**OPTIONAL FILES (for reference/documentation only):**
+
+6. **Training History** (optional):
+   ```bash
+   mv path/to/extracted/training_history_pytorch.json models/pytorch_nn/training_history_pytorch.json 2>/dev/null || true
+   ```
+
+7. **Embedding Metadata** (optional):
+   ```bash
+   mv path/to/extracted/embedding_metadata.json data/embeddings/embedding_metadata.json 2>/dev/null || true
+   ```
+
+8. **MLP Baseline Model** (optional):
+   ```bash
+   mkdir -p models/mlp
+   mv path/to/extracted/mlp_model.pkl models/mlp/mlp_model.pkl 2>/dev/null || true
+   mv path/to/extracted/scaler.pkl models/mlp/scaler.pkl 2>/dev/null || true
+   mv path/to/extracted/mlp_metrics.json models/mlp/mlp_metrics.json 2>/dev/null || true
+   ```
+
+**Replace `path/to/extracted/` with the actual path to your Duke Box download folder.**
+
+Example if you downloaded to `~/Downloads/CS372-patent-data/`:
 ```bash
-# Move embedding files
-mv path/to/extracted/patent_embeddings.npy data/embeddings/
-mv path/to/extracted/patent_ids.json data/embeddings/
-
-# Move patent database
-mv path/to/extracted/patents_sampled.jsonl data/sampled/
-
-# Move model files (REQUIRED)
-mv path/to/extracted/pytorch_model.pt models/pytorch_nn/
-mv path/to/extracted/scaler_pytorch.pkl models/pytorch_nn/
-
-# Optional: Move training metadata (not required for app)
-mv path/to/extracted/training_history_pytorch.json models/pytorch_nn/ 2>/dev/null || true
-
-# Optional: Move embedding metadata if included
-mv path/to/extracted/embedding_metadata.json data/embeddings/ 2>/dev/null || true
-
-# Optional: Move MLP baseline files if included
-mkdir -p models/mlp
-mv path/to/extracted/mlp_model.pkl models/mlp/ 2>/dev/null || true
-mv path/to/extracted/scaler.pkl models/mlp/ 2>/dev/null || true
-mv path/to/extracted/mlp_metrics.json models/mlp/ 2>/dev/null || true
+cd CS372-final-project
+mv ~/Downloads/CS372-patent-data/patent_embeddings.npy data/embeddings/
+mv ~/Downloads/CS372-patent-data/patent_ids.json data/embeddings/
+mv ~/Downloads/CS372-patent-data/patents_sampled.jsonl data/sampled/
+mv ~/Downloads/CS372-patent-data/pytorch_model.pt models/pytorch_nn/
+mv ~/Downloads/CS372-patent-data/scaler_pytorch.pkl models/pytorch_nn/
 ```
 
 **Alternative: If Box download preserves directory structure**
@@ -176,25 +246,24 @@ After moving the files, your directory structure should look like this:
 
 ```
 CS372-final-project/
-├── data/
-│   ├── embeddings/
-│   │   ├── patent_embeddings.npy      # REQUIRED: 200K patent embeddings (~3.2 GB)
-│   │   ├── patent_ids.json            # REQUIRED: Patent ID mapping (~15 MB)
-│   │   └── embedding_metadata.json    # (optional) Embedding metadata
-│   ├── sampled/
-│   │   └── patents_sampled.jsonl      # REQUIRED: 200K patent metadata (~3.8 GB)
-│   └── features/
-│       └── feature_names_v2.json      # Feature names (already in repo)
-├── models/
-│   ├── pytorch_nn/
-│   │   ├── pytorch_model.pt           # REQUIRED: Trained classifier (~2 MB)
-│   │   ├── scaler_pytorch.pkl         # REQUIRED: Feature scaler (~20 KB)
-│   │   └── training_history_pytorch.json  # (optional) Training metadata
-│   └── mlp/                           # (optional) Baseline model
-│       ├── mlp_model.pkl
-│       ├── scaler.pkl
-│       └── mlp_metrics.json
-└── ...
+  data/
+    embeddings/
+      patent_embeddings.npy           # REQUIRED: 200K patent embeddings (~3.2 GB)
+      patent_ids.json                 # REQUIRED: Patent ID mapping (~15 MB)
+      embedding_metadata.json         # (optional) Embedding metadata
+    sampled/
+      patents_sampled.jsonl           # REQUIRED: 200K patent metadata (~3.8 GB)
+    features/
+      feature_names_v2.json           # Feature names (already in repo)
+  models/
+    pytorch_nn/
+      pytorch_model.pt                # REQUIRED: Trained classifier (~2 MB)
+      scaler_pytorch.pkl              # REQUIRED: Feature scaler (~20 KB)
+      training_history_pytorch.json   # (optional) Training metadata
+    mlp/                              # (optional) Baseline model
+      mlp_model.pkl
+      scaler.pkl
+      mlp_metrics.json
 ```
 
 ### Verification Checklist
@@ -266,26 +335,57 @@ print("\nAll data files verified and ready!")
 
 ## Environment Configuration
 
-### Set SerpAPI Key
+### Configure SerpAPI Key
 
-The application requires a SerpAPI key for online patent search functionality.
+The application uses SerpAPI for online patent search. Follow these steps to configure your API key:
 
-**Option 1: Export in shell session (temporary)**
+**Step 1: Get Your API Key**
+1. Sign up at https://serpapi.com/
+2. Go to Dashboard -> API Key
+3. Copy your API key (it will look like: `a1b2c3d4e5f6...`)
+
+**Step 2: Set the API Key (Choose ONE option)**
+
+**Option A: Export in Current Shell (Quick, Temporary)**
+
+Best for testing. Lasts only for current terminal session:
 ```bash
-export SERPAPI_KEY=your_serpapi_key_here
+export SERPAPI_KEY=your_actual_api_key_here
 ```
 
-**Option 2: Create a `.env` file (persistent)**
+Verify it's set:
 ```bash
-echo "SERPAPI_KEY=your_serpapi_key_here" > .env
+echo $SERPAPI_KEY  # Should print your key
 ```
 
-**Option 3: Export alternative variable name**
+**Option B: Create .env File (Recommended, Persistent)**
+
+Best for regular use. Create a `.env` file in the project root:
 ```bash
-export SERPAPI_API_KEY=your_serpapi_key_here
+cd CS372-final-project
+echo "SERPAPI_KEY=your_actual_api_key_here" > .env
 ```
 
-The application will check for both `SERPAPI_KEY` and `SERPAPI_API_KEY`.
+The app will automatically load this file on startup.
+
+**Option C: Add to Shell Profile (Permanent)**
+
+Add to `~/.bashrc`, `~/.zshrc`, or `~/.bash_profile`:
+```bash
+echo 'export SERPAPI_KEY=your_actual_api_key_here' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Verification:**
+```bash
+# Check if key is set
+echo $SERPAPI_KEY
+
+# Test SerpAPI connection
+curl -s "https://serpapi.com/search.json?engine=google_patents&q=wireless+power&api_key=$SERPAPI_KEY" | head -n 5
+```
+
+**Note:** The app checks for `SERPAPI_KEY` or `SERPAPI_API_KEY` (both work). If no key is found, online search will be disabled but local search (200K patents) will still work.
 
 ## Running the Application
 
@@ -439,9 +539,36 @@ pip install torch
 ```
 
 **5. SerpAPI errors (online search not working)**
-- Verify your API key is set correctly: `echo $SERPAPI_KEY`
-- Check you haven't exceeded free tier limits (100 searches/month)
-- Ensure `google-search-results` package is installed
+
+If you see "SerpAPI key not configured" or online search returns 0 results:
+
+**Step 1: Verify API key is set**
+```bash
+echo $SERPAPI_KEY  # Should print your key, not empty
+```
+
+**Step 2: Check the key format**
+- Should be a long alphanumeric string (e.g., `a1b2c3d4e5f6...`)
+- No quotes or extra spaces
+- Not the word "your_serpapi_key_here"
+
+**Step 3: Verify the package is installed**
+```bash
+pip list | grep google-search-results  # Should show: google-search-results
+```
+
+**Step 4: Test the API directly**
+```bash
+curl -s "https://serpapi.com/search.json?engine=google_patents&q=test&api_key=$SERPAPI_KEY" | head -n 10
+```
+
+If this returns an error about quota:
+- You've exceeded the free tier (100 searches/month)
+- Wait until next month or upgrade your plan
+- The app will still work with local search only
+
+**Step 5: Restart Streamlit**
+After setting the API key, restart the Streamlit app to reload the environment variable.
 
 **6. File not found errors (embeddings/data)**
 - Verify all files were extracted from Box download
@@ -457,6 +584,39 @@ pip install torch
 - The application uses CPU by default (FAISS-CPU)
 - If you have GPU: install `faiss-gpu` and `torch` with CUDA support
 - For Apple Silicon: PyTorch will use Metal Performance Shaders automatically
+
+**9. SSL Certificate Permission Error (macOS-specific)**
+
+If you encounter `PermissionError: [Errno 1] Operation not permitted` when loading models:
+
+This is a macOS security issue where Python cannot access SSL certificates. Try these solutions in order:
+
+**Solution A: Temporary workaround (Quick fix)**
+```bash
+# Run Streamlit with SSL verification disabled
+PYTHONHTTPSVERIFY=0 CURL_CA_BUNDLE="" streamlit run app.py
+```
+
+**Solution B: Grant Terminal full disk access (Recommended)**
+1. Open **System Settings** -> **Privacy & Security** -> **Full Disk Access**
+2. Add your **Terminal** application (or iTerm/whichever terminal you're using)
+3. Restart your terminal and try running the app normally
+
+**Solution C: Reinstall certificates**
+```bash
+pip install --upgrade certifi
+/Applications/Python\ 3.*/Install\ Certificates.command  # If using python.org installer
+```
+
+**Solution D: Use the project's virtual environment**
+```bash
+# Make sure you're using the venv Python
+which python  # Should show /path/to/CS372-final-project/.venv/bin/python
+source .venv/bin/activate  # If not already activated
+streamlit run app.py
+```
+
+**Note:** This issue typically only affects macOS users and occurs when the system's security settings prevent Python from accessing certificate stores. The workaround (Solution A) is safe for local development but disables SSL verification. For production use or if downloading models from the internet, use Solution B or C.
 
 ## First Run Notes
 

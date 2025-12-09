@@ -54,7 +54,7 @@ All notebooks require:
 
 3. **Open notebook** from the Jupyter interface
 
-4. **Run all cells** sequentially (Cell → Run All)
+4. **Run all cells** sequentially (Cell -> Run All)
 
 ## Notes
 

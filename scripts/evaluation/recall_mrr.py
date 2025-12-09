@@ -1,15 +1,5 @@
 """
 Compute Recall@K and MRR using known citation pairs as positives.
-
-Inputs:
-- data/training/test_pairs.jsonl  (expects JSON lines with {"patent_id_1": ..., "patent_id_2": ..., "label": 0/1})
-  or
-- data/citations/filtered_citations.jsonl (fallback if test_pairs not found)
-- models/pytorch_nn/ (pytorch_model.pt, scaler_pytorch.pkl)
-- data/features/test_features_v2.X.npy, test_features_v2.y.npy, test_features.pairs.json
-
-Outputs:
-- results/analysis/recall_mrr.json
 """
 
 import json
@@ -95,23 +85,18 @@ def main():
 
     positives = build_positive_map(pairs)
 
-    # Load feature data and pair mapping to align indices
     X_test = np.load(root / "data" / "features" / "test_features_v2.X.npy")
     pairs_list = json.load(open(root / "data" / "features" / "test_features.pairs.json"))
 
-    # Align to 10-feature model if needed
     if X_test.shape[1] == 13:
         idx_keep = [i for i in range(13) if i not in [0, 1, 6]]
         X_test = X_test[:, idx_keep]
 
-    # Load model
     clf = PyTorchPatentClassifier()
     clf.load(root / "models" / "pytorch_nn")
 
-    # Score all test pairs
     probs = clf.predict_proba(X_test)[:, 1]
 
-    # Build scores per query patent
     scores = defaultdict(list)
     for (pid1, pid2), p in zip(pairs_list, probs):
         scores[pid1].append((pid2, p))

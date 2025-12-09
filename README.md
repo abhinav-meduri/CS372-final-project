@@ -106,7 +106,7 @@ The retrieval system surfaces relevant prior art in the top results, with cited 
 **Limitations:**
 - Local database limited to 200K patents from 2021-2025
 - Online search requires SerpAPI subscription
-- Model trained only on utility patents
+- Performance may vary on patents outside the 2021-2025 timeframe
 
 ### Key Takeaways
 

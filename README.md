@@ -52,9 +52,9 @@ For complete setup instructions, see [SETUP.md](SETUP.md).
 
 ## Required Data Files
 
-**IMPORTANT:** This repository does **NOT** include the large data files (~7 GB) required to run the application due to GitHub size limits.
+**Important:** This repository does not include the large data files (~7 GB) required to run the application due to GitHub size limits.
 
-**You MUST download these files from Duke Box:**
+**You must download these files from Duke Box:**
 
 **[Download Required Data Files (Duke Box)](https://duke.box.com/s/4y6mjf1965d15gnltnkqnk0dkedbttqh)**
 
@@ -86,7 +86,8 @@ See [SETUP.md](SETUP.md) for detailed extraction and placement instructions.
 
 ## Video
 
-Watch the [Demo Video and Technical Walkthrough](https://drive.google.com/drive/folders/12FspQzWt7QM_nqvoML0M5z0BfGV2CLUY?usp=sharing) for a complete demonstration of the system and explanation of the technical implementation.
+- [Demo Video](https://drive.google.com/drive/folders/12FspQzWt7QM_nqvoML0M5z0BfGV2CLUY?usp=sharing)
+- [Technical Walkthrough](https://drive.google.com/drive/folders/12FspQzWt7QM_nqvoML0M5z0BfGV2CLUY?usp=sharing)
 
 ---
 

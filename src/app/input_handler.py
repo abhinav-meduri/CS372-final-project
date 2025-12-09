@@ -4,8 +4,7 @@ Unified Input Handler for Patent Novelty System
 Supports multiple input modalities:
 1. Structured patent (title, abstract, claims)
 2. Free-text idea description
-3. Document upload (PDF, TXT, DOCX)
-4. General search query ("find patents about X")
+3. General search query ("find patents about X")
 
 Converts all inputs to a standardized format for processing.
 """

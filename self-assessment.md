@@ -172,7 +172,7 @@
 ---
 
 
-## 11. Compared multiple model architectures or approaches quantitatively (5 pts)
+## 10. Compared multiple model architectures or approaches quantitatively (5 pts)
 
 **Evidence:**
 - 6 models compared with quantitative metrics:
@@ -194,7 +194,7 @@
 
 ---
 
-## 12. Defined and trained a custom neural network architecture using PyTorch (5 pts)
+## 11. Defined and trained a custom neural network architecture using PyTorch (5 pts)
 
 **Evidence:**
 - Custom PatentNoveltyNet architecture with residual connections
@@ -215,7 +215,7 @@
 
 ---
 
-## 13. Implemented preprocessing pipeline handling data quality issues (5 pts)
+## 12. Implemented preprocessing pipeline handling data quality issues (5 pts)
 
 **Evidence:**
 - **Missing Data:** Fallback logic for missing abstracts/titles/claims (abstract -> summary -> claims -> empty string)
@@ -234,7 +234,7 @@
 
 ---
 
-## 14. Used sentence embeddings for semantic similarity or retrieval (5 pts)
+## 13. Used sentence embeddings for semantic similarity or retrieval (5 pts)
 
 **Evidence:**
 - PatentSBERTa sentence embeddings for all 200K patents in database
@@ -253,7 +253,7 @@
 
 ---
 
-## 15. Used at least three distinct and appropriate evaluation metrics for your task (3 pts)
+## 14. Used at least three distinct and appropriate evaluation metrics for your task (3 pts)
 
 **Evidence:**
 - Seven evaluation metrics used to assess model performance:
@@ -276,7 +276,7 @@
 
 ---
 
-## 16. Processed and successfully trained on exceptionally large dataset (>100K samples for NLP) (10 pts)
+## 15. Processed and successfully trained on exceptionally large dataset (>100K samples for NLP) (10 pts)
 
 **Evidence:**
 - 200,000 patents processed from PatentsView (2021-2025)
@@ -332,11 +332,11 @@ $ python -c "import json; print(len(json.load(open('data/embeddings/patent_ids.j
 - Item 7: 5 points (Hyperparameter tuning)
 - Item 8: 5 points (Regularization)
 - Item 9: 5 points (Feature engineering)
-- Item 11: 5 points (Model comparison)
-- Item 12: 5 points (Custom PyTorch architecture)
-- Item 13: 5 points (Preprocessing pipeline)
-- Item 14: 5 points (Sentence embeddings)
-- Item 15: 3 points (3+ evaluation metrics)
-- Item 16: 10 points (Large dataset >100K)
+- Item 10: 5 points (Model comparison)
+- Item 11: 5 points (Custom PyTorch architecture)
+- Item 12: 5 points (Preprocessing pipeline)
+- Item 13: 5 points (Sentence embeddings)
+- Item 14: 3 points (3+ evaluation metrics)
+- Item 15: 10 points (Large dataset >100K)
 
 This exceeds the 70-point requirement by 29 points, with all evidence based on working implementation and clearly documented in the codebase.

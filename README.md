@@ -13,29 +13,22 @@ This system helps researchers and inventors assess the novelty of patent applica
 ## Quick Start
 
 ```bash
-# 1. Clone repository and create virtual environment
 git clone https://github.com/abhinavmeduri/CS372-final-project.git
 cd CS372-final-project
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate
 
-# 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Download required data files from Box
-# Box Link: https://duke.box.com/s/4y6mjf1965d15gnltnkqnk0dkedbttqh
-# Extract and place files in data/ and models/ directories
-# See SETUP.md for detailed instructions
+# Download data from Box: https://duke.box.com/s/4y6mjf1965d15gnltnkqnk0dkedbttqh
+# Extract and place in data/ and models/ (see SETUP.md)
 
-# 4. Install and start Ollama for LLM explanations
-brew install ollama           # macOS (Linux/Windows: see https://ollama.ai)
+brew install ollama
 brew services start ollama
 ollama pull phi3
 
-# 5. (Optional) Set SerpAPI key for online search
 export SERPAPI_KEY=your_serpapi_key_here
 
-# 6. Run the application
 streamlit run app.py
 ```
 

@@ -241,12 +241,12 @@ from pathlib import Path
 
 # Check embeddings
 embeddings = np.load('data/embeddings/patent_embeddings.npy')
-print(f"✓ Embeddings shape: {embeddings.shape}")  # Should be (200000, 768)
+print(f"Embeddings shape: {embeddings.shape}")  # Should be (200000, 768)
 
 # Check patent IDs
 with open('data/embeddings/patent_ids.json', 'r') as f:
     patent_ids = json.load(f)
-print(f"✓ Patent IDs count: {len(patent_ids)}")  # Should be 200000
+print(f"Patent IDs count: {len(patent_ids)}")  # Should be 200000
 
 # Check patent database
 import json
@@ -254,14 +254,14 @@ count = 0
 with open('data/sampled/patents_sampled.jsonl', 'r') as f:
     for line in f:
         count += 1
-print(f"✓ Patent database entries: {count}")  # Should be 200000
+print(f"Patent database entries: {count}")  # Should be 200000
 
 # Check model files
 import torch
 model_state = torch.load('models/pytorch_nn/pytorch_model.pt', map_location='cpu')
-print(f"✓ Model loaded successfully")
+print(f"Model loaded successfully")
 
-print("\n✓ All data files verified and ready!")
+print("\nAll data files verified and ready!")
 ```
 
 ## Environment Configuration

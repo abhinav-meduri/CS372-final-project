@@ -4,7 +4,8 @@ Follow these steps to run the Patent Novelty Assessment System locally from star
 
 ## Video Tutorial
 
-Watch the [Demo Video and Technical Walkthrough](https://drive.google.com/drive/folders/12FspQzWt7QM_nqvoML0M5z0BfGV2CLUY?usp=sharing) for a complete demonstration of the setup process and system usage.
+- [Demo Video](https://drive.google.com/drive/folders/12FspQzWt7QM_nqvoML0M5z0BfGV2CLUY?usp=sharing)
+- [Technical Walkthrough](https://drive.google.com/drive/folders/12FspQzWt7QM_nqvoML0M5z0BfGV2CLUY?usp=sharing)
 
 ## Prerequisites
 
@@ -89,9 +90,9 @@ You should see a JSON response listing available models including `phi3`.
 
 ## Data Setup
 
-**IMPORTANT: Required Data Files**
+**Important: Required Data Files**
 
-The application requires several large data files (~7 GB total) that are **NOT included in the Git repository** due to size constraints. These files are **ESSENTIAL** for the application to run. You **MUST** download them from Duke Box and place them in the correct directories before running the app.
+The application requires several large data files (~7 GB total) that are not included in the Git repository due to size constraints. These files are essential for the application to run. You must download them from Duke Box and place them in the correct directories before running the app.
 
 **Without these files, the app will fail with "File not found" errors.**
 
@@ -166,7 +167,7 @@ mkdir -p models/pytorch_nn
 
 From the extracted Duke Box download folder, move each file to its correct location in your repository:
 
-**REQUIRED FILES (must be placed correctly for app to work):**
+**Required Files (must be placed correctly for app to work):**
 
 1. **Patent Embeddings** (~3.2 GB):
    ```bash
@@ -198,7 +199,7 @@ From the extracted Duke Box download folder, move each file to its correct locat
    ```
    **Destination:** `CS372-final-project/models/pytorch_nn/scaler_pytorch.pkl`
 
-**OPTIONAL FILES (for reference/documentation only):**
+**Optional Files (for reference/documentation only):**
 
 6. **Training History** (optional):
    ```bash

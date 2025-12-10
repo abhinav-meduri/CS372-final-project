@@ -109,18 +109,40 @@ I also downloaded the citation graph file `g_us_patent_citation.tsv` which conta
 
 "This script converts all 200,000 patents into 768-dimensional embedding vectors. This was the most computationally expensive preprocessing step - it took about 11 hours to run on my Apple M1 machine with MPS GPU acceleration. Without GPU, this would have taken 50-60 hours."
 
-### Lines 1-30: Imports and Setup
+"The script has a clean structure with four main functions and uses a wrapper class called PatentEmbedder instead of directly using SentenceTransformer. Let me walk through each component."
 
-"Let me show you the imports first. We're using the sentence-transformers library which provides easy access to BERT-based models. PatentSBERTa is hosted on HuggingFace's model hub, so sentence-transformers can download it automatically. We also import torch for GPU acceleration detection, numpy for array operations, json for loading patent data, and tqdm for progress bars during the 11-hour run."
+### Lines 1-19: Imports and Setup
 
-**Key imports explained:**
-- "sentence_transformers provides the SentenceTransformer class which wraps BERT models and makes encoding text very simple"
-- "torch is the PyTorch backend - we need this to detect if we have MPS (Apple Silicon GPU) or CUDA (NVIDIA GPU) available"
-- "numpy for efficient array operations - we'll save embeddings as a numpy array which is much faster than JSON"
-- "tqdm gives us progress bars so we can monitor the 11-hour embedding generation process"
-- "pathlib for cross-platform path handling"
+**What to say:**
 
-### Lines 32-56: `get_patent_text()` Function - Text Extraction Strategy
+"Looking at the imports and setup:
+
+Lines 1-4: The docstring explains the script's purpose - load sampled patents, extract short text, and encode with PatentSBERTa.
+
+Lines 6-18: Key imports:
+- `json` for loading the JSONL patent file
+- `numpy` for array operations
+- `tqdm` for progress bars during the multi-hour run
+- `Path` from pathlib for file paths
+- Line 18: We import our custom `PatentEmbedder` class from `src.embeddings.patent_sberta` - this is a wrapper around SentenceTransformer that provides additional functionality
+
+Line 21: We define the path to our sampled patents file."
+
+### Lines 24-29: `load_sampled_patents()` Function
+
+**What to say:**
+
+"This function loads all 200,000 patents from the JSONL file.
+
+Line 24: Function signature - takes a Path and returns a list of patent dictionaries
+
+Lines 26-28: Open the file and iterate line by line with tqdm for progress. Each line is one patent in JSON format. We parse each line with `json.loads()` and append to the patents list.
+
+Why line-by-line? The file is 3.8 GB. Loading the entire file into memory at once would require ~8-10 GB RAM (JSON is inefficient). Line-by-line streaming keeps memory usage under 1 GB.
+
+Returns: List of 200,000 patent dictionaries, each with keys like 'patent_id', 'title', 'abstract', 'claims', 'year', etc."
+
+### Lines 32-44: `get_patent_text()` Function - Text Extraction Strategy
 
 "This function looks simple but it's critically important. It determines what text we embed for each patent."
 
@@ -140,97 +162,186 @@ I also downloaded the citation graph file `g_us_patent_citation.tsv` which conta
 **Line 35, 38, 47: Why truncate to 500 characters?**
 "PatentSBERTa is based on BERT architecture, which has a maximum sequence length of 512 tokens. A token is roughly 0.75 words on average - it could be a whole word like 'charging' or a subword like '##less' in 'wireless'. So 512 tokens is approximately 384 words, which is roughly 1920 characters. We use 500 characters to be conservative and ensure we never exceed the model's context window. What happens if we exceed it? The model would truncate automatically, potentially cutting off important information mid-sentence. Better to truncate ourselves cleanly at a character boundary."
 
-**Lines 48-49: Return Empty String as Fallback**
-"If a patent has no abstract, no summary, and no claims, we return an empty string instead of None. Why? The sentence-transformers library expects a string. If we pass None, it will crash with a TypeError. An empty string gets embedded as a near-zero vector, which has ~0.0 cosine similarity to everything - exactly what we want for patents with no text. This is defensive programming to handle edge cases gracefully."
+**Line 44: Return Empty String as Fallback**
+"If a patent has no abstract, no summary, and no claims, we return an empty string instead of None. Why? The PatentEmbedder expects a string. If we pass None, it will crash with a TypeError. An empty string gets embedded as a near-zero vector, which has ~0.0 cosine similarity to everything - exactly what we want for patents with no text. This is defensive programming to handle edge cases gracefully."
 
-### Lines 59-86: `generate_embeddings_batch()` Function
-"This is where the magic happens - converting text to embeddings."
+### Lines 47-56: `prepare_texts()` Function - Batch Text Extraction
 
-**Lines 67-70:** "For each patent in the batch, we extract its text using the function we just discussed."
+**What to say:**
 
-**Lines 73-80: THE KEY LINE - `model.encode()`**
-"This single line does a tremendous amount of work. Let me break down what's happening inside model.encode():
+"This function processes all 200,000 patents and extracts their texts for embedding.
 
-1. **Tokenization**: The text is split into subword tokens using BERT's WordPiece tokenizer. For example, 'wireless charging system' might become ['wire', '##less', 'charging', 'system'].
+Lines 47-49: Function signature and initialization. We return two lists - patent IDs and their corresponding texts.
 
-2. **Special tokens**: BERT adds [CLS] at the beginning and [SEP] at the end. The [CLS] token will eventually contain the representation of the entire sequence.
+Lines 50-56: The main loop with tqdm progress bar:
+- Line 51: Extract patent_id and convert to string
+- Line 52: Extract text using `get_patent_text()`
+- Line 53-55: IMPORTANT filtering - only keep patents with non-empty text. We check `text.strip()` to skip patents with only whitespace.
+  
+Why filter? Some patents might have empty abstracts or malformed data. No point wasting GPU time embedding empty strings or whitespace.
 
-3. **Input IDs**: Each token is converted to an integer ID from BERT's 30,000-word vocabulary.
+Returns: Two parallel lists. If we started with 200,000 patents but 500 had no text, we return lists of length 199,500. The lists are aligned by index: ids[i] corresponds to texts[i]."
 
-4. **Attention masks**: A mask is created showing which tokens are real (1) vs padding (0).
+### Lines 59-67: `generate_embeddings()` Function - THE CORE EMBEDDING PROCESS
 
-5. **Transformer layers**: The input passes through 12 transformer encoder layers. Each layer has:
-   - Multi-head self-attention (8 heads, 64 dimensions each = 768 total)
-   - Layer normalization
+**What to say:**
+
+"This is the main function that actually generates embeddings. Let me walk through it line by line:
+
+Line 59: Function signature - takes a list of text strings and batch_size (defaults to 64).
+
+Line 60: Create a `PatentEmbedder` instance with the specified batch_size. This is our custom wrapper class around SentenceTransformer that we'll discuss in detail.
+
+Lines 61-62: THE KEY LINES - record start time and call `encoder.encode(texts, show_progress=True)`. This single call:
+- Loads PatentSBERTa (if not already loaded)
+- Detects GPU (CUDA/MPS/CPU)
+- Processes all texts in batches
+- Returns a numpy array of shape (num_texts, 768)
+
+This takes 11 hours for 200,000 patents!
+
+Lines 63-66: Calculate performance metrics:
+- Line 63: Calculate elapsed time
+- Line 64: Calculate rate (patents per second)
+- Lines 65-66: Print statistics
+
+Line 67: Return the embeddings array.
+
+Note at line 65: This is a 'dry run' script - generates embeddings but doesn't save them. The actual saving happens elsewhere or in a modified version of this script."
+
+### Lines 70-77: `main()` Function - The Pipeline
+
+**What to say:**
+
+"This orchestrates the entire process:
+
+Line 71: Load all 200,000 patents from the JSONL file using `load_sampled_patents()`. This returns a list of 200,000 patent dictionaries.
+
+Line 72: Extract texts from all patents using `prepare_texts()`. Returns two lists: patent IDs and texts.
+
+Lines 73-75: Sanity check - if no texts were extracted (all patents had empty text), print error and return.
+
+Line 76: Generate embeddings for all texts with batch_size=64. The underscore `_` means we're not storing the return value - this is just a dry run to test the pipeline.
+
+Line 77: Print completion message."
+
+### The PatentEmbedder Class - Deep Dive (`src/embeddings/patent_sberta.py`)
+
+**What to say:**
+
+"Now let me explain what happens inside `PatentEmbedder.encode()`. This is defined in a separate file: `src/embeddings/patent_sberta.py`."
+
+**Lines 28-58: PatentEmbedder Initialization and Properties**
+
+"The PatentEmbedder class wraps SentenceTransformer with additional functionality:
+
+Lines 31-46: `__init__` method:
+- Line 45: Store model name (defaults to 'AI-Growth-Lab/PatentSBERTa')
+- Line 46: Store batch size
+- Lines 48-52: Device detection - checks for CUDA (NVIDIA), otherwise defaults to CPU. Note: In practice, we also check for MPS (Apple Silicon) though that's not in this base version.
+- Line 57: `_model = None` - lazy loading! Model isn't loaded until first use.
+
+Lines 59-68: `model` property (lazy loading):
+- Line 62: Check if model is already loaded
+- Lines 63-66: If not, import SentenceTransformer and load PatentSBERTa from HuggingFace. First time this runs, it downloads ~440MB of model weights.
+- Line 66: Move model to GPU or CPU
+- Line 68: Return the cached model
+
+Why lazy loading? Saves memory and startup time. If you just want to load patents without embedding, you don't waste time loading a 440MB model."
+
+**Lines 70-101: The `encode()` Method - WHERE EMBEDDING HAPPENS**
+
+"This is called when we do `encoder.encode(texts)`:
+
+Lines 70-75: Method signature:
+- texts: Single string or list of strings
+- show_progress: Whether to show progress bar (defaults to True)
+- normalize: Whether to L2-normalize embeddings (defaults to True for cosine similarity)
+
+Lines 87-88: Convert single string to list if needed
+
+Line 90: Log that we're starting
+
+Lines 92-99: THE CORE TRANSFORMATION - `self.model.encode()`:
+This calls SentenceTransformer's encode method with:
+- Line 93: `texts` - our patent texts
+- Line 94: `batch_size=self.batch_size` - process in batches of 64
+- Line 95: `show_progress_bar=show_progress` - show tqdm bar
+- Line 96: `convert_to_numpy=True` - return NumPy array instead of PyTorch tensor
+- Line 97: `normalize_embeddings=normalize` - L2 normalize (True by default)
+- Line 98: `device=self.device` - use GPU or CPU
+
+Line 101: Return the embeddings
+
+What `model.encode()` does internally (inside SentenceTransformer):
+
+1. **Tokenization**: Splits text into subword tokens using BERT's WordPiece tokenizer. Example: 'wireless charging system' → ['wire', '##less', 'charging', 'system']
+
+2. **Special tokens**: Adds [CLS] at start and [SEP] at end: ['[CLS]', 'wire', '##less', 'charging', 'system', '[SEP]']
+
+3. **Input IDs**: Converts tokens to integer IDs from 30,522-word vocabulary: [101, 7318, 3238, 11379, 2291, 102]
+
+4. **Positional encodings**: Adds position information since transformers have no inherent sense of order
+
+5. **Attention masks**: Creates mask showing which tokens are real (1) vs padding (0)
+
+6. **12 Transformer Layers**: Each layer applies:
+   - Multi-head self-attention (8 heads × 96 dimensions = 768 total)
+   - Layer normalization  
    - Feed-forward network (768 → 3072 → 768)
    - Residual connections
 
-6. **Pooling**: We extract the final hidden state of the [CLS] token from layer 12. This 768-dimensional vector is our embedding."
+7. **Pooling**: Extracts the [CLS] token's final hidden state from layer 12 as the 768-dim embedding
 
-**Why batch_size=32?** "This is an efficiency trade-off. Too small (like 1) means we underutilize the GPU. Too large (like 256) might cause out-of-memory errors. 32 is the sweet spot for M1's Metal Performance Shaders - good GPU utilization without memory issues."
+8. **L2 Normalization** (if normalize=True): Divides by vector magnitude so cosine similarity = dot product
 
-**convert_to_numpy=True:** "By default, model.encode returns PyTorch tensors. We convert to NumPy because NumPy is easier to save/load and works well with our later processing steps."
-
-**normalize_embeddings=False:** "We'll normalize during search instead. This saves computation time during the 11-hour embedding generation."
-
-### Lines 90-180: `main()` Function - The Pipeline
-
-**Lines 94-96:** "Load PatentSBERTa from HuggingFace. First time this runs, it downloads ~440MB of model weights."
-
-**Lines 99-106: GPU Detection**
-"The code checks for available hardware acceleration:
-- CUDA: NVIDIA GPUs (fastest, 50+ patents/second)
-- MPS: Apple Metal (Apple Silicon, ~18 patents/second) 
-- CPU: Fallback (slowest, ~3 patents/second)
-
-For M1, we use MPS which makes this about 5x faster than CPU."
-
-**Lines 109-118:** "Load all 200,000 patents from the JSONL file. We use tqdm for a progress bar. Notice we wrap the JSON parsing in a try-except at line 114-117 to handle any malformed lines gracefully."
-
-**Lines 121-140: The Main Processing Loop**
-"This is where we process 200,000 patents in batches of 32."
-
-**Line 125:** "We iterate in steps of 32: process patents 0-31, then 32-63, then 64-95, and so on."
-
-**Line 127:** "Call our batch embedding function for this group of 32 patents."
-
-**Line 128:** "Accumulate the results. We're building a list of arrays: [(32,768), (32,768), (32,768), ...]"
-
-**Lines 131-136: Checkpointing**
-"Every 10,000 patents (312 batches), we save a checkpoint. Why? Because this takes 11 hours. If it crashes at hour 10, we don't want to start over. We can resume from the last checkpoint."
-
-**Lines 143-144:** "After all batches, we stack them vertically using numpy's vstack. This concatenates [(32,768), (32,768), ...] into one big (200000, 768) matrix."
-
-**Lines 152-154: Save Embeddings**
-"We save the embedding matrix as a .npy file. NumPy's binary format is efficient:
-- 200,000 rows × 768 columns × 4 bytes per float32 = 614 million bytes = 586 MB
-- Loading this file takes ~1 second vs several seconds for JSON or CSV."
-
-**Lines 157-160: Save Patent IDs**
-"We also save the mapping of array index to patent ID. Index 0 corresponds to the first patent ID, index 1 to the second, etc. During search, we'll get indices from argsort() and use this list to look up the actual patent IDs."
-
-**Lines 162-168: Save Metadata**
-"We record everything about the generation process: how long it took, which device we used, what model version. This is important for reproducibility and debugging."
+Result: One 768-dimensional vector per patent capturing semantic meaning."
 
 ### Performance Analysis
-"Let me give you the numbers from when I ran this:
-- Total time: 40,110 seconds = 11.1 hours
-- Processing rate: 200,000 / 40,110 = 4.99 patents/second (overall)
-- Pure embedding time: ~18 patents/second
-- The difference accounts for I/O, checkpoint saving, and overhead
 
-This is a one-time cost. Once we have the embeddings, searches are instant."
+**What to say:**
 
-### Outputs
-"This script produces three files:
-1. `patent_embeddings.npy` - 586 MB, (200000, 768) float32 array
-2. `patent_ids.json` - 2.3 MB, list of 200,000 patent IDs
-3. `embedding_metadata.json` - stats about generation
+"Let me give you the actual numbers from running this:
 
-These embeddings are used in three places later:
-- Local similarity search (cosine similarity)
-- Feature #1 in feature extraction
-- Feature #9 for claim-level similarity"
+Batch processing:
+- Batch size: 64 patents at a time
+- Number of batches: 200,000 / 64 = 3,125 batches
+- Time per batch on Apple M1 (MPS): ~12.8 seconds
+- Total time: 3,125 × 12.8s = 40,000s = 11.1 hours
+
+Processing rate:
+- Overall: 200,000 / 40,000 = 5 patents/second
+- Pure GPU time: ~18 patents/second
+- Difference accounts for I/O, CPU overhead, logging
+
+Hardware comparison:
+- Apple M1 (MPS): 5 patents/sec (what I used)
+- NVIDIA RTX 3090: 15-20 patents/sec (3-4x faster)
+- CPU only: 1-2 patents/sec (3-5x slower)
+
+This is a one-time cost. Once generated, we save embeddings to disk and loading takes ~1 second."
+
+### Outputs (After Saving)
+
+**What to say:**
+
+"When embeddings are saved (in production version of this script), we get:
+
+1. `patent_embeddings.npy`:
+   - Shape: (200000, 768)
+   - Size: 200,000 × 768 × 4 bytes = 614 MB (586 MiB)
+   - Format: NumPy binary (.npy) for fast loading
+   - Loading time: ~1 second
+
+2. `patent_ids.json`:
+   - List of 200,000 patent IDs
+   - Size: ~2.3 MB
+   - Maps array index to patent ID: ids[0] is embedding[0]'s patent
+
+These files are used in three places:
+- **Local similarity search**: Load embeddings, compute cosine similarity with query
+- **Feature extraction** (Feature #1): Embedding cosine similarity between patent pairs
+- **Claim similarity** (Feature #9): Embed individual claims and compare"
 
 ---
 

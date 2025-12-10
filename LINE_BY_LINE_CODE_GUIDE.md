@@ -95,27 +95,53 @@ I also downloaded the citation graph file `g_us_patent_citation.tsv` which conta
 
 ## Overview Narrative
 
-"Now that we have our 200,000 patents, we need to convert them into numerical representations that machine learning models can work with. This is where PatentSBERTa comes in. PatentSBERTa is a BERT model that was fine-tuned by AI-Growth-Lab on 1.2 million patent abstracts. Unlike general BERT which was trained on Wikipedia, PatentSBERTa understands patent-specific terminology like 'prior art,' 'embodiments,' and technical jargon."
+"Now that we have our 200,000 patents, we need to convert them into numerical representations that machine learning models can work with. This is where PatentSBERTa comes in."
+
+**What are embeddings?** "An embedding is a dense vector representation of text that captures semantic meaning. Instead of representing 'wireless charging system' as a sparse bag of words like a traditional one-hot encoding, we represent it as a point in 768-dimensional space. The key insight is that similar concepts are close together in this space. Two patents about wireless charging might be separated by a distance of 0.3, while a wireless patent and a pharmaceutical patent might be 1.5 apart."
+
+**Why PatentSBERTa specifically?** "PatentSBERTa is a BERT model that was fine-tuned by the AI-Growth-Lab research group on 1.2 million patent abstracts from the USPTO database. Regular BERT was trained on Wikipedia and books - it understands general language. PatentSBERTa understands patent-specific terminology and language patterns. For example, it knows that 'prior art' in patents means something very different from 'previous work' in academic papers. It understands 'claims' refers to legally binding statements, not just assertions. It recognizes technical jargon across electrical engineering, mechanical engineering, biotechnology, and software domains. It understands the legal writing style of patent documents."
+
+"This domain-specific training is crucial. A general-purpose embedding model like regular BERT might conflate 'battery charging' with 'criminal charging' because they share a word. PatentSBERTa understands the context and knows these are completely different concepts."
 
 ## File: `scripts/data/preprocessing/generate_embeddings.py`
 
 **What to say:**
 
-"This script converts all 200,000 patents into 768-dimensional embedding vectors. It took about 11 hours to run on my Apple M1 machine with GPU acceleration."
+"This script converts all 200,000 patents into 768-dimensional embedding vectors. This was the most computationally expensive preprocessing step - it took about 11 hours to run on my Apple M1 machine with MPS GPU acceleration. Without GPU, this would have taken 50-60 hours."
 
-### Lines 1-20: Imports
-"We're using the `sentence-transformers` library which provides easy access to BERT-based models. PatentSBERTa is hosted on HuggingFace's model hub."
+### Lines 1-30: Imports and Setup
 
-### Lines 32-56: `get_patent_text()` Function
-"This function extracts the best text representation from a patent for embedding."
+"Let me show you the imports first. We're using the sentence-transformers library which provides easy access to BERT-based models. PatentSBERTa is hosted on HuggingFace's model hub, so sentence-transformers can download it automatically. We also import torch for GPU acceleration detection, numpy for array operations, json for loading patent data, and tqdm for progress bars during the 11-hour run."
 
-**Lines 34-35:** "We prefer abstracts because they're concise but comprehensive - usually 100-300 words that summarize the entire invention."
+**Key imports explained:**
+- "sentence_transformers provides the SentenceTransformer class which wraps BERT models and makes encoding text very simple"
+- "torch is the PyTorch backend - we need this to detect if we have MPS (Apple Silicon GPU) or CUDA (NVIDIA GPU) available"
+- "numpy for efficient array operations - we'll save embeddings as a numpy array which is much faster than JSON"
+- "tqdm gives us progress bars so we can monitor the 11-hour embedding generation process"
+- "pathlib for cross-platform path handling"
 
-**Lines 37-38:** "If there's no abstract, we fall back to the summary section."
+### Lines 32-56: `get_patent_text()` Function - Text Extraction Strategy
 
-**Lines 39-47:** "If there's no summary either, we use the first claim. Notice the defensive programming here - claims can be dictionaries with a 'text' key or just plain strings. We handle both cases."
+"This function looks simple but it's critically important. It determines what text we embed for each patent."
 
-**Why truncate to 500 characters at line 35?** "PatentSBERTa is based on BERT which has a maximum sequence length of 512 tokens. A token is roughly 0.75 words, so 512 tokens is about 384 words or roughly 2000 characters. We use 500 characters to be conservative and ensure we never hit that limit."
+**The priority order is carefully chosen:**
+
+**Line 34-35: Abstract (First Priority)**
+"We prefer abstracts because they're the perfect balance. Patent abstracts are typically 100-300 words and provide a comprehensive overview of the invention. They describe what the invention is, what problem it solves, how it works, and what advantages it provides. This is what patent examiners read first when evaluating novelty, so it's what we should embed."
+
+"Patents have multiple text sections - the title is too short at only 5-15 words and doesn't contain enough information. The detailed description can be thousands of words and would require chunking and aggregation. Claims are legally binding but written in complex legal language with nested clauses. Abstracts are the sweet spot."
+
+**Lines 37-38: Summary (Second Priority)**
+"If there's no abstract, we fall back to the summary section. Summaries are similar to abstracts but sometimes more verbose. They still capture the essence of the invention."
+
+**Lines 39-47: First Claim (Third Priority)**
+"If neither abstract nor summary exists, we use the first claim. The first claim is usually the broadest independent claim that describes the core invention. Notice the defensive programming here - claims can be formatted as dictionaries with a 'text' key or as plain strings. Different USPTO download batches format claims differently, so we handle both cases by checking isinstance. This prevents crashes during processing."
+
+**Line 35, 38, 47: Why truncate to 500 characters?**
+"PatentSBERTa is based on BERT architecture, which has a maximum sequence length of 512 tokens. A token is roughly 0.75 words on average - it could be a whole word like 'charging' or a subword like '##less' in 'wireless'. So 512 tokens is approximately 384 words, which is roughly 1920 characters. We use 500 characters to be conservative and ensure we never exceed the model's context window. What happens if we exceed it? The model would truncate automatically, potentially cutting off important information mid-sentence. Better to truncate ourselves cleanly at a character boundary."
+
+**Lines 48-49: Return Empty String as Fallback**
+"If a patent has no abstract, no summary, and no claims, we return an empty string instead of None. Why? The sentence-transformers library expects a string. If we pass None, it will crash with a TypeError. An empty string gets embedded as a near-zero vector, which has ~0.0 cosine similarity to everything - exactly what we want for patents with no text. This is defensive programming to handle edge cases gracefully."
 
 ### Lines 59-86: `generate_embeddings_batch()` Function
 "This is where the magic happens - converting text to embeddings."

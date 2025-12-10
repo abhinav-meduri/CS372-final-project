@@ -362,75 +362,145 @@ So citations give us positive examples. For negative examples, we randomly sampl
 
 **What to say:**
 
-"This script extracts training pairs from the USPTO citation graph and creates balanced train/validation/test splits."
+"This script extracts training pairs from the USPTO citation graph and creates balanced training/validation/test splits. It implements Positive-Unlabeled (PU) learning by extracting citations as positive examples and random non-citing pairs as negative examples."
 
-### Lines 1-40: Setup and Citation Loading
-"The script starts by loading the citation graph. This is a large TSV file from USPTO containing millions of citation relationships."
+### Lines 10-17: `load_our_patent_ids()` - Load Our Patent Set
 
-### Lines 64-113: `generate_negative_pairs()` - THE KEY ALGORITHM
+**What to say:**
 
-"This function is crucial - it's how we create negative training examples."
+"First, we load the 200,000 patent IDs from our sampled patents file.
 
-**Lines 74-76:** "For each positive pair where patent A cites patent B, we're going to create a negative pair where A doesn't cite some other patent C."
+Lines 11-15: Loop through the patents_sampled.jsonl file with tqdm progress bar, parse each JSON line, and extract the patent_id. Store in a set for O(1) lookup.
 
-**Line 79:** "We get the full citation set for patent A - all the patents it cites. Let's say A cites [B, X, Y, Z]."
+Line 16: Print how many patent IDs we loaded (should be 200,000).
 
-**Lines 82-93: The Sampling Logic**
-"Now we randomly sample from the full database until we find a patent that A does NOT cite."
+Return: A set of patent ID strings. Sets are perfect for membership testing which we'll do millions of times."
 
-**Line 86:** "Pick a random patent C from all 200,000 patents."
+### Lines 20-57: `extract_citation_pairs()` - Filter Citations to Our Patents
 
-**Line 89:** "Check two conditions:
-1. C is not the same as A (we don't want to pair a patent with itself)
-2. C is not in A's citation set (we want a truly random, unrelated patent)"
+**What to say:**
 
-**Line 91:** "If both conditions pass, create the negative pair (A, C)."
+"This function reads the massive USPTO citation TSV file and filters it to only citations between patents in our 200K sample.
 
-**Why this works:** "If we randomly sample from 200,000 patents and A only cites maybe 10-20 of them, the probability of randomly picking one A cites is tiny (~0.01%). So almost all our random samples will be genuinely unrelated patents."
+Lines 21-23: Function signature - takes the citation TSV path, our patent ID set, and output path.
 
-**Lines 95-97: Safety Limit**
-"We try up to 100 times to find a valid negative. In practice, we succeed on the first try 99%+ of the time. But this prevents infinite loops if we have a patent that somehow cites half the database."
+Lines 31-34: Open the TSV file and create a CSV reader with tab delimiter. Use tqdm to track progress since this file has millions of rows.
 
-### Lines 150-220: `create_train_val_test_split()` - Stratified Splitting
+Lines 37-38: For each row, extract the citing patent ID and cited patent ID, stripping quotes.
 
-"Once we have all our pairs (positive and negative), we need to split them into train, validation, and test sets. The key requirement: maintain class balance in all splits."
+Lines 40-47: THE KEY FILTER - Only keep citation pairs where BOTH patents are in our 200K sample. This is important because:
+- Citing patent must be in our set
+- Cited patent must be in our set
+- Otherwise we can't use this pair for training (we don't have the data)
 
-**Lines 161-166: Shuffle Separately**
-"We shuffle positive and negative pairs separately with a fixed random seed (42). This ensures reproducibility - same seed always gives same split."
+If both patents are in our set, create a citation pair dictionary with the IDs, citation category, and citation date.
 
-**Lines 169-172: Calculate Split Sizes**
-"We use a 70/15/15 split:
-- 70% for training (where the model learns)
-- 15% for validation (for hyperparameter tuning and early stopping)
-- 15% for test (final evaluation, never seen during development)"
+Line 49: Print statistics - how many total rows scanned and how many citation pairs found.
 
-**Lines 175-188: Split Positives and Negatives Separately**
-"This is the stratification. We split the 28,557 positive pairs into 70/15/15, and we split the 28,557 negative pairs into 70/15/15 using the SAME ratios. This guarantees each split has exactly 50% positive, 50% negative."
+Lines 51-56: Save all matched citation pairs to a JSONL file.
 
-**Why stratify?** "If we just randomly split all 57,114 pairs, we might get unlucky - maybe training ends up 48% positive, validation 53% positive. This would make validation metrics not comparable to training. Stratification prevents this."
+Result: A filtered citation file containing only citations between our 200K patents. Typically this gives us ~28,000-30,000 citation pairs."
 
-**Lines 191-199: Combine and Label**
-"Now we combine the positive and negative pairs for each split and label them:
-- Positive pairs get label = 1
-- Negative pairs get label = 0
+### Lines 60-164: `create_training_pairs_from_citations()` - Create Balanced Pairs
 
-Then we shuffle each split so we don't have all positives followed by all negatives."
+**What to say:**
 
-**Lines 201-210: Save to Files**
-"We save three JSONL files:
-- `train_pairs.jsonl` - 39,979 pairs (19,989 positive + 19,990 negative)
-- `val_pairs.jsonl` - 8,567 pairs (balanced)
-- `test_pairs.jsonl` - 8,568 pairs (balanced)
+"This is the main function that creates our training dataset with positive and negative pairs.
 
-Each line contains: {patent_id_1, patent_id_2, label}"
+Lines 67-68: Set random seed for reproducibility and create output directory.
+
+**Lines 72-86: Create Positive Pairs from Citations**
+
+Lines 75-78: For each citation, extract the citing and cited patent IDs. Normalize the order (smaller ID first) to avoid duplicates like (A,B) and (B,A).
+
+Lines 79-86: Use a set to track pairs we've seen. Only add unique citation pairs with label=1 (positive/similar).
+
+Result: A list of positive pairs, typically ~28,557 unique citation pairs.
+
+**Lines 88-120: Generate Negative Pairs - Random Sampling**
+
+Line 90: Calculate how many negatives we need. With n_negative_per_positive=1, we create equal number of negatives and positives.
+
+Lines 93-94: Convert our patent IDs to a list for random sampling. Copy the citation set for fast lookups.
+
+Lines 96-97: Initialize counters - we'll try up to max_attempts (20x our target) to avoid infinite loops.
+
+Lines 99-120: THE NEGATIVE SAMPLING LOOP
+
+Line 101: Increment attempt counter.
+
+Lines 102-103: Randomly pick two patents from our 200K sample.
+
+Lines 104-106: Normalize order (smaller ID first) to match positive pair format.
+
+Lines 108-115: Check if this is a valid negative pair:
+- Line 108: Not the same patent (p1 != p2)
+- Line 109: Not in citation set (not a known citation)
+- Line 110: Haven't generated this negative before (not in generated negatives)
+
+If all conditions pass, this is a valid negative pair - add it with label=0.
+
+Line 117: Check if we've generated enough negatives or hit max attempts.
+
+Why random sampling works: With 200K patents and only ~28K citations, the probability of randomly selecting a citing pair is ~0.14%. So random sampling almost always gives us true negatives."
+
+**Lines 122-164: Create Stratified Train/Val/Test Split**
+
+Lines 123-124: Combine positive and negative pairs into one list.
+
+Lines 126-130: Shuffle with fixed seed for reproducibility.
+
+Lines 132-146: Calculate split sizes:
+- Line 135: 70% training
+- Lines 136-138: 15% validation 
+- Lines 139-141: 15% test
+
+Lines 143-146: Slice the shuffled data into three sets.
+
+Note: We shuffle BEFORE splitting, which maintains the 50/50 positive/negative balance in each split (since we concatenated equal numbers of positives and negatives).
+
+Lines 148-164: Save to JSONL files:
+- train_pairs.jsonl
+- val_pairs.jsonl  
+- test_pairs.jsonl
+
+Print statistics for each split.
+
+**Lines 166-180: main() Function**
+
+Line 168: Load our 200K patent IDs.
+
+Line 169: Extract citation pairs (filter USPTO citations to our patents).
+
+Lines 170-177: Create training pairs with balanced positives and negatives, split into train/val/test.
+
+Line 179: Save mapping of which patents were used in each split."
 
 ### Results
-"From the USPTO citation graph containing ~500,000 citations among our 200K patents, we extracted:
-- 28,557 positive pairs (actual citations)
-- 28,557 negative pairs (random non-citations)
-- Total: 57,114 labeled pairs
-- Split: 70% train (39,979), 15% val (8,567), 15% test (8,568)
-- All splits have exactly 50/50 class balance"
+
+**What to say:**
+
+"After running this script, we have:
+
+**Positive pairs (citations):**
+- ~28,557 unique citation relationships between our 200K patents
+
+**Negative pairs (random):**
+- ~28,557 randomly sampled non-citing pairs
+
+**Total:** ~57,114 labeled pairs
+
+**Split:**
+- Training: 39,979 pairs (70%, balanced 50/50)
+- Validation: 8,567 pairs (15%, balanced 50/50)
+- Test: 8,568 pairs (15%, balanced 50/50)
+
+**Class balance:** All splits have exactly 50% positive (label=1) and 50% negative (label=0).
+
+This is Positive-Unlabeled (PU) learning because:
+- Positives are confirmed (citations are explicit)
+- Negatives are unlabeled (no citation doesn't guarantee no relationship)
+- But random sampling ensures most negatives are genuinely different"
 
 ---
 

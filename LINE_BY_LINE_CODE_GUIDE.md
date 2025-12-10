@@ -3,7 +3,29 @@
 **Purpose:** Explain every important file in your pipeline with clear line references and practical explanations.
 
 **Pipeline Order:**
-1. Embedding Generation → 2. Training Data → 3. Features → 4. Model Training → 5. Inference → 6. LLM Integration → 7. Web App
+1. Embedding Generation → 2. Training Data → 3. Feature Engineering → 4. Hyperparameter Tuning → 5. Model Training → 6. Inference → 7. LLM Integration → 8. Web App
+
+## Files Covered (10 Total)
+
+**Data Pipeline:**
+1. `scripts/data/preprocessing/generate_embeddings.py` - Convert 200K patents to embeddings
+2. `scripts/training/extract_citation_pairs.py` - Create 57K training pairs from citations
+
+**Feature Engineering:**
+3. `src/features/feature_extract.py` - FeatureExtractor class (10 features defined)
+4. `scripts/data/preprocessing/compute_features.py` - Compute features for all pairs
+
+**Model Training:**
+5. `scripts/evaluation/tuning/nn_tuning.py` - Hyperparameter tuning (54 configs, 3-fold CV)
+6. `src/app/pytorch_classifier.py` - PyTorch model class + training logic
+
+**Inference:**
+7. `src/app/patent_analyzer.py` - Main analysis orchestrator
+8. `src/app/phi3_explainer.py` - Phi-3 LLM for explanations
+9. `data/api/online_search.py` - SerpAPI + LLM keyword extraction
+
+**Application:**
+10. `app.py` - Streamlit web interface
 
 ---
 
@@ -103,9 +125,13 @@ from tqdm import tqdm
 
 ---
 
-## File 3: `src/features/feature_extract.py`
-**Pipeline Stage:** Feature Engineering (Step 3)  
-**Purpose:** Extract 10 features for each patent pair
+## File 3A: `src/features/feature_extract.py`
+**Pipeline Stage:** Feature Engineering (Step 3a)  
+**Purpose:** Define FeatureExtractor class with 10 feature methods
+
+## File 3B: `scripts/data/preprocessing/compute_features.py`
+**Pipeline Stage:** Feature Engineering (Step 3b)  
+**Purpose:** Run feature extraction on all train/val/test pairs
 
 ### Lines 20-80: `FeatureExtractor` Class Initialization
 **Lines 28-35:** Load embeddings and create ID→index mapping
@@ -201,13 +227,121 @@ sim = cosine_similarity(title_emb_a, title_emb_b)
 
 **Line 209:** Return all 10 features as numpy array `[f1, f2, ..., f10]`
 
-**Pipeline Connection:** For each of our 57K training pairs, we compute these 10 features. This creates:
-- `X_train`: (39979, 10) feature matrix
-- `y_train`: (39979,) labels (0 or 1)
+**Pipeline Connection:** This class defines HOW to compute features. The next script actually runs it on all pairs.
 
 ---
 
-## File 4: `src/app/pytorch_classifier.py`
+### File 3B Continued: `scripts/data/preprocessing/compute_features.py`
+
+**Lines 24-30: `load_patents()` Function**
+```python
+def load_patents(path):
+    patents = {}
+    with path.open("r") as f:
+        for line in tqdm(f, desc="Loading patents"):
+            patent = json.loads(line)
+            patents[str(patent["patent_id"])] = patent
+    return patents
+```
+**What it does:** Load all 200K patents from JSONL into dictionary (patent_id → patent_dict)
+
+**Lines 41-57: `load_embeddings()` Function**
+**Line 47:** Load embeddings numpy array (200K × 768)
+**Lines 48-56:** Load corresponding patent IDs from JSON
+**Line 57:** Return both (embeddings array + ID list)
+
+**Lines 60-79: `compute_split_features()` Function**
+**Line 64:** Loop through all pairs in this split (train/val/test)
+**Lines 65-67:** Extract patent IDs and label from pair dict
+**Lines 68-71:** Look up both patents, skip if either missing
+**Line 72:** **KEY LINE:** `extractor.extract_features(p1, p2)` - compute 10 features
+**Line 73:** Convert feature vector to array
+**Line 74:** Accumulate labels
+**Lines 77-78:** Stack into numpy arrays
+**Result:** X matrix (N, 10) and y labels (N,)
+
+**Lines 92-115: `main()` Function - The Pipeline**
+**Line 93:** Load all 200K patents
+**Line 94:** Load embeddings and IDs
+**Line 96-98:** Create FeatureExtractor and give it embeddings
+**Lines 103-110:** For each split (train, val, test):
+  - Load pairs from `{split}_pairs.jsonl`
+  - Compute features using `compute_split_features()`
+  - Print statistics
+
+**What this script outputs:**
+- `train_features_v2.X.npy`: (39979, 10) - train features
+- `train_features_v2.y.npy`: (39979,) - train labels
+- `val_features_v2.X.npy`: (8567, 10) - validation features
+- `val_features_v2.y.npy`: (8567,) - validation labels
+- `test_features_v2.X.npy`: (8568, 10) - test features
+- `test_features_v2.y.npy`: (8568,) - test labels
+
+**Pipeline Connection:** These feature files are loaded by the training script.
+
+---
+
+## File 4A: `scripts/evaluation/tuning/nn_tuning.py`
+**Pipeline Stage:** Hyperparameter Tuning (Step 4a)  
+**Purpose:** Find best hyperparameters using 3-fold cross-validation
+
+### Lines 20-34: `load_features()` Function
+**Lines 23-28:** Load train/val/test features from numpy files
+**Lines 29-33:** Load feature names from JSON
+**What it does:** Load the feature files created by `compute_features.py`
+
+### Lines 37-44: `build_param_grid()` Function
+```python
+return {
+    "hidden_dims": [[128, 64], [128, 64, 32], [256, 128]],
+    "dropout": [0.2, 0.3, 0.4],
+    "learning_rate": [0.0005, 0.001, 0.002],
+    "weight_decay": [1e-5, 1e-4],
+    "batch_size": [256],
+}
+```
+**What it does:** Define grid of hyperparameters to try
+- 3 architectures × 3 dropout rates × 3 learning rates × 2 weight decays = 54 configurations
+
+### Lines 62-115: `main()` Function - Grid Search
+**Lines 64-67:** Load features and combine train+val for cross-validation
+**Lines 70-71:** Generate all 54 hyperparameter combinations
+**Line 73:** Create 3-fold cross-validation splitter
+**Lines 79-99:** For each configuration:
+  - **Line 87-97:** Create PyTorchPatentClassifier with these hyperparameters
+  - **Line 98:** Train on this fold
+  - **Line 99:** Evaluate and get ROC-AUC
+  - **Line 100:** Accumulate scores across 3 folds
+**Lines 101-109:** Average scores across folds, track best configuration
+
+**Lines 112-125:** After trying all configs:
+  - Train final model on best configuration
+  - Evaluate on held-out test set
+  - Save results
+
+**What this outputs:**
+```json
+{
+  "best_params": {
+    "hidden_dims": [256, 128],
+    "dropout": 0.3,
+    "learning_rate": 0.002,
+    "weight_decay": 1e-5,
+    "batch_size": 256
+  },
+  "best_cv_score": 0.9717,
+  "test_metrics": {
+    "accuracy": 0.9173,
+    "roc_auc": 0.9720
+  }
+}
+```
+
+**Pipeline Connection:** The best hyperparameters found here are used in the final model.
+
+---
+
+## File 4B: `src/app/pytorch_classifier.py`
 **Pipeline Stage:** Model Training (Step 4)  
 **Purpose:** Train neural network to predict similarity from 10 features
 
@@ -261,7 +395,7 @@ sim = cosine_similarity(title_emb_a, title_emb_b)
 
 **Result:** Trained model achieving 97.2% ROC-AUC on test set
 
-**Pipeline Connection:** This trained model (118K parameters, 462 KB) is saved and loaded during inference to score new patent pairs.
+**Pipeline Connection:** This trained model (118K parameters, 462 KB) is saved to `models/pytorch_nn/pytorch_model.pt` and loaded during inference.
 
 ---
 
@@ -559,6 +693,7 @@ result = analyzer.analyze(
 
 **Embedding Generation:**
 - `generate_embeddings.py` lines 73-80: `model.encode()` - text to vectors
+- `generate_embeddings.py` lines 125-136: Main processing loop
 
 **Training Data:**
 - `extract_citation_pairs.py` lines 86-91: Negative sampling logic
@@ -568,6 +703,13 @@ result = analyzer.analyze(
 - `feature_extract.py` lines 90-95: Feature 1 (embedding similarity)
 - `feature_extract.py` lines 98-112: Feature 2 (TF-IDF)
 - `feature_extract.py` lines 170-195: Feature 9 (max claim similarity)
+- `compute_features.py` lines 64-79: Compute features for all pairs
+- `compute_features.py` lines 103-110: Process train/val/test splits
+
+**Hyperparameter Tuning:**
+- `nn_tuning.py` lines 37-44: Define parameter grid (54 configs)
+- `nn_tuning.py` lines 79-99: 3-fold cross-validation loop
+- `nn_tuning.py` lines 112-125: Train final model on best config
 
 **Model Training:**
 - `pytorch_classifier.py` lines 318-323: Training step (forward→backward→update)

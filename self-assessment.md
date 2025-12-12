@@ -48,7 +48,7 @@
 - Deployment with error handling and user feedback
 
 **Files:**
-- `app.py` (804 lines) - Complete Streamlit application
+- `app.py` (798 lines) - Complete Streamlit application
 - `SETUP.md` - Deployment and setup instructions
 - `README.md` - Usage guide and quick start
 
@@ -67,8 +67,8 @@
 - `src/app/patent_analyzer.py` (lines 294-500) - Multi-stage pipeline orchestration connecting all 4 stages
 - `src/embeddings/patent_sberta.py` (292 lines) - Stage 1: PatentSBERTa transformer embeddings
 - `src/features/feature_extract.py` (160 lines) - Stage 2: Feature engineering from embeddings
-- `src/app/pytorch_classifier.py` (502 lines) - Stage 3: PyTorch neural network classification
-- `src/app/phi3_explainer.py` (319 lines) - Stage 4: Conditional text generation based on scores
+- `src/app/pytorch_classifier.py` (523 lines) - Stage 3: PyTorch neural network classification
+- `src/app/phi3_explainer.py` (318 lines) - Stage 4: Conditional text generation based on scores
 - `scripts/data/preprocessing/generate_embeddings.py` - Batch processing for Stage 1 (200K patents)
 - `notebooks/pipeline.ipynb` - Complete end-to-end demonstration with execution outputs
 

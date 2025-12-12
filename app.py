@@ -401,7 +401,7 @@ def render_novelty_result(result, input_text: str = ""):
     with col3:
         online_count = sum(1 for p in similar_patents if p.get('source') == 'online' or 'google' in str(p.get('patent_id', '')).lower())
         local_count = len(similar_patents) - online_count
-        st.metric("Search Coverage", f"{local_count}L + {online_count}O", help="Local (L) and Online (O) patents found")
+        st.metric("Search Coverage", f"{local_count} Local + {online_count} Online", help="Local and Online patents found")
     with col4:
         if rank_percentile is not None and top_k_scored > 0:
             # Fix percentile display: rank_percentile represents % that are MORE novel

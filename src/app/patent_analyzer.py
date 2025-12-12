@@ -422,6 +422,19 @@ class PatentAnalyzer:
                     if not similar_patent_data:
                         similar_patent_data = self._load_patent(patent_id)
                     
+                    if not similar_patent_data and similar_patent.get('source') == 'online':
+                        similar_patent_data = similar_patent.copy()
+                        
+                        if 'embedding' not in similar_patent_data:
+                            title = similar_patent_data.get('title', '')
+                            abstract = similar_patent_data.get('abstract', '')
+                            if title or abstract:
+                                try:
+                                    embedding = self.embedder.encode_patent(title, abstract)
+                                    similar_patent_data['embedding'] = embedding
+                                except Exception as e:
+                                    print(f"Failed to generate embedding for {patent_id}: {e}")
+                    
                     if similar_patent_data:
                         try:
                             feature_vector = self.feature_extractor.extract_features(
@@ -437,13 +450,9 @@ class PatentAnalyzer:
                             scored_patents.append(similar_patent)
                         except Exception as e:
                             print(f"Failed to score patent {patent_id}: {e}")
-                            similar_patent['model_similarity'] = similar_patent.get('similarity', 0)
-                            similar_patent['model_novelty'] = 1 - similar_patent.get('similarity', 0)
-                            scored_patents.append(similar_patent)
+                            continue
                     else:
-                        similar_patent['model_similarity'] = similar_patent.get('similarity', 0)
-                        similar_patent['model_novelty'] = 1 - similar_patent.get('similarity', 0)
-                        scored_patents.append(similar_patent)
+                        continue
                 
                 if scored_patents:
                     # Sort by model similarity (lowest = most novel)

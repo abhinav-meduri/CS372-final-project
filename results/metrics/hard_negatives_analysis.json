@@ -1,0 +1,29 @@
+{
+  "num_pairs": 500,
+  "pytorch": {
+    "accuracy": 1.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "roc_auc": NaN,
+    "confusion_matrix": [
+      [
+        500
+      ]
+    ]
+  },
+  "pytorch_probability_stats": {
+    "min": 7.0251303441182245e-06,
+    "max": 0.013665239326655865,
+    "mean": 0.002011226024478674,
+    "median": 0.0008924048161134124,
+    "pairs_predicted_novel": 0,
+    "pairs_confident_not_novel": 500,
+    "pairs_uncertain": 0
+  },
+  "summary": {
+    "pytorch_fp_rate": 0.0,
+    "pytorch_tn_rate": 1.0,
+    "pytorch_accuracy": 1.0
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "Random Guessing": {
+    "accuracy": 0.4977824463118581,
+    "precision": 0.49310264203881227,
+    "recall": 0.4969368520263902,
+    "roc_auc": 0.5031798715016728,
+    "f1": 0.4950123224973595
+  },
+  "Majority Class": {
+    "accuracy": 0.5046685340802988,
+    "precision": 0.0,
+    "recall": 0.0,
+    "roc_auc": 0.5,
+    "f1": 0.0
+  },
+  "Logistic Regression": {
+    "accuracy": 0.9093137254901961,
+    "precision": 0.9283419817148505,
+    "recall": 0.8852497643732328,
+    "roc_auc": 0.9673823675324189,
+    "f1": 0.9062839223254131
+  },
+  "Cosine Similarity (heuristic)": {
+    "accuracy": 0.8426704014939309,
+    "precision": 0.86751269035533,
+    "recall": 0.8053722902921772,
+    "roc_auc": 0.9169828155938273,
+    "f1": 0.8352883675464321,
+    "threshold": 0.5424242424242425
+  },
+  "MLP Classifier": {
+    "accuracy": 0.8758,
+    "roc_auc": 0.9453,
+    "f1": 0.8717
+  },
+  "PyTorch Neural Net": {
+    "accuracy": 0.917250233426704,
+    "roc_auc": 0.9719794326822392,
+    "f1": 0.9153028312029626
+  }
+}

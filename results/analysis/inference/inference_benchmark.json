@@ -1,0 +1,8 @@
+{
+  "single_sample_mean_ms": 2.664330948377028,
+  "single_sample_median_ms": 1.7144375015050173,
+  "batch_size": 4096,
+  "batch_repeats": 200,
+  "batch_throughput_samples_per_sec": 614334.2279934948,
+  "device": "mps"
+}

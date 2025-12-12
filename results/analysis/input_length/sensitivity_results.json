@@ -1,0 +1,38 @@
+{
+  "original": {
+    "accuracy": 0.917250233426704,
+    "roc_auc": 0.5108777118875338,
+    "f1": 0.9153028312029626,
+    "count": 8568
+  },
+  "short_50": {
+    "accuracy": 0,
+    "roc_auc": 0,
+    "f1": 0,
+    "count": 0
+  },
+  "short_100": {
+    "accuracy": 0,
+    "roc_auc": 0,
+    "f1": 0,
+    "count": 0
+  },
+  "medium_200": {
+    "accuracy": 0,
+    "roc_auc": 0,
+    "f1": 0,
+    "count": 0
+  },
+  "medium_300": {
+    "accuracy": 0,
+    "roc_auc": 0,
+    "f1": 0,
+    "count": 0
+  },
+  "long_500": {
+    "accuracy": 0,
+    "roc_auc": 0,
+    "f1": 0,
+    "count": 0
+  }
+}

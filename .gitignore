@@ -78,7 +78,7 @@ experimental/models/*.pkl
 experimental/models/*.json
 
 # Results and outputs
-results/
+# results/  # Commented out - we want to track results/plots for project submission
 *.log
 *.out
 

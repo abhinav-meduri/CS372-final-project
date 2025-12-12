@@ -1,0 +1,17 @@
+{
+  "test": {
+    "accuracy": 0.8758169934640523,
+    "precision": 0.8927865612648221,
+    "recall": 0.851555136663525,
+    "f1": 0.8716835504100338,
+    "roc_auc": 0.9452979708633661
+  },
+  "hyperparameters": {
+    "alpha": 1e-05,
+    "hidden_layer_sizes": [
+      64
+    ],
+    "learning_rate_init": 0.005
+  },
+  "expected_accuracy": 0.9156162464985994
+}

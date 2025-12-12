@@ -56,13 +56,19 @@ def _summarize_abstract(abstract_text: str, max_sentences: int = 4) -> str:
     if not sentences:
         trimmed = abstract_text.strip()
         if len(trimmed) > 500:
-            trimmed = trimmed[:500].rsplit(' ', 1)[0]
+            trimmed = trimmed[:500].rsplit(' ', 1)[0] + '... [text abbreviated due to length limit]'
         return trimmed
     
     selected = sentences[:max_sentences]
     summary = '. '.join(selected)
+    was_truncated = len(sentences) > max_sentences
+    
     if len(summary) > 500:
-        summary = summary[:500].rsplit(' ', 1)[0]
+        summary = summary[:500].rsplit(' ', 1)[0] + '... [text abbreviated due to length limit]'
+    elif was_truncated:
+        if not summary.endswith('.'):
+            summary += '.'
+        summary += ' [text abbreviated - showing first 4 sentences]'
     
     return summary.strip()
 

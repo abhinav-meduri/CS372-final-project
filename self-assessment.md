@@ -121,7 +121,7 @@
 **Files:**
 - `scripts/evaluation/tuning/nn_tuning.py` (423 lines) - Hyperparameter tuning script with 3-fold CV
 - `results/hyperparameter_tuning/pytorch_tuning.json` - All 54 configurations with CV scores and statistics
-- `src/app/pytorch_classifier.py` - Final model using best hyperparameters: hidden_dims=[256, 128], dropout=0.3, lr=0.002
+- `src/app/pytorch_classifier.py` - Final model using best hyperparameters: hidden_dims=[256, 128], dropout=0.3, lr=0.0005
 - `notebooks/pytorch_classifier.ipynb` - Training notebook showing hyperparameter selection process
 
 ---
@@ -131,14 +131,14 @@
 **Evidence:**
 - L2 Regularization: weight_decay=1e-05 in AdamW optimizer
 - Dropout: dropout=0.3 applied in all hidden layers via ResidualBlock
-- Early Stopping: patience=15 epochs with validation loss monitoring
+- Early Stopping: patience=5 epochs with validation loss monitoring
 - All three techniques used in final PyTorch model
 
 **Files:**
 - `src/app/pytorch_classifier.py`:
   - Lines 282-283: L2 weight decay in AdamW optimizer (`weight_decay=1e-05`)
   - Lines 44-45, 64, 102: Dropout layer implementations (`nn.Dropout(dropout)`)
-  - Lines 296-298, 346-356: Early stopping with patience=15 epochs
+  - Lines 296-298, 359-371: Early stopping with patience=5 epochs
 - `results/hyperparameter_tuning/pytorch_tuning.json` - Shows impact of dropout rates (0.1, 0.2, 0.3) on CV performance
 - `results/plots/pytorch/training_curve.png` - Visualizes early stopping behavior
 

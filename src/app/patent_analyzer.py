@@ -433,9 +433,11 @@ class PatentAnalyzer:
                                     embedding = self.embedder.encode_patent(title, abstract)
                                     similar_patent_data['embedding'] = embedding
                                 except Exception as e:
-                                    print(f"Failed to generate embedding for {patent_id}: {e}")
+                                    print(f"Failed to generate embedding for online patent {patent_id}: {e}")
+                                    import traceback
+                                    traceback.print_exc()
                     
-                    if similar_patent_data:
+                    if similar_patent_data and 'embedding' in similar_patent_data:
                         try:
                             feature_vector = self.feature_extractor.extract_features(
                                 query_patent,
@@ -450,8 +452,11 @@ class PatentAnalyzer:
                             scored_patents.append(similar_patent)
                         except Exception as e:
                             print(f"Failed to score patent {patent_id}: {e}")
+                            import traceback
+                            traceback.print_exc()
                             continue
                     else:
+                        print(f"Skipping patent {patent_id}: no embedding data available (title: {bool(similar_patent.get('title'))}, abstract: {bool(similar_patent.get('abstract'))})")
                         continue
                 
                 if scored_patents:

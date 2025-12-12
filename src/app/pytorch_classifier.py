@@ -148,7 +148,7 @@ class PyTorchPatentClassifier:
         Number of hidden units in each layer
     dropout : float, default=0.3
         Dropout probability
-    learning_rate : float, default=0.002
+    learning_rate : float, default=0.0005
         Learning rate for optimizer
     weight_decay : float, default=1e-05
         L2 regularization parameter
@@ -156,7 +156,7 @@ class PyTorchPatentClassifier:
         Minibatch size
     max_epochs : int, default=100
         Maximum number of training epochs
-    patience : int, default=15
+    patience : int, default=5
         Number of epochs to wait before early stopping
     use_residual : bool, default=True
         Whether to use residual connections
@@ -170,11 +170,11 @@ class PyTorchPatentClassifier:
         self,
         hidden_dims=[256, 128],
         dropout=0.3,
-        learning_rate=0.002,
+        learning_rate=0.0005,
         weight_decay=1e-05,
         batch_size=256,
         max_epochs=100,
-        patience=15,
+        patience=5,
         use_residual=True,
         bn_momentum=0.1,
         device=None

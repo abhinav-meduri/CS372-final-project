@@ -52,23 +52,23 @@ def _summarize_abstract(abstract_text: str, max_sentences: int = 4) -> str:
     if not abstract_text or abstract_text == 'No abstract available':
         return abstract_text
     
+    original_length = len(abstract_text)
     sentences = [s.strip() for s in abstract_text.replace('\n', ' ').split('.') if s.strip()]
     if not sentences:
         trimmed = abstract_text.strip()
         if len(trimmed) > 500:
-            trimmed = trimmed[:500].rsplit(' ', 1)[0] + '... [text abbreviated due to length limit]'
+            trimmed = trimmed[:500].rsplit(' ', 1)[0] + '... [text truncated for display]'
         return trimmed
     
     selected = sentences[:max_sentences]
     summary = '. '.join(selected)
-    was_truncated = len(sentences) > max_sentences
     
     if len(summary) > 500:
-        summary = summary[:500].rsplit(' ', 1)[0] + '... [text abbreviated due to length limit]'
-    elif was_truncated:
+        summary = summary[:500].rsplit(' ', 1)[0] + '... [text truncated for display]'
+    elif len(sentences) > max_sentences or original_length > len(summary) + 50:
         if not summary.endswith('.'):
             summary += '.'
-        summary += ' [text abbreviated - showing first 4 sentences]'
+        summary += ' [text truncated for display]'
     
     return summary.strip()
 

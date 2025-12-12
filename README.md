@@ -105,13 +105,13 @@ Citation relationships serve as a reliable proxy for patent relatedness because 
 
 | Metric | Score | Interpretation |
 |--------|-------|----------------|
-| **Accuracy** | 91.73% | Overall correctness on balanced test set |
-| **Precision** | 92.83% | When predicting similar, correct 92.8% of time |
-| **Recall** | 90.27% | Captures 90.3% of actually similar pairs |
-| **F1 Score** | 91.53% | Balanced precision-recall trade-off |
-| **ROC-AUC** | 97.20% | Strong ranking ability across thresholds |
-| **PR-AUC** | 97.47% | High precision-recall curve area |
-| **Expected Calibration Error** | 0.89% | Probabilities closely match actual rates |
+| **Accuracy** | 91.20% | Overall correctness on balanced test set |
+| **Precision** | 93.98% | When predicting similar, correct 94.0% of time |
+| **Recall** | 87.87% | Captures 87.9% of actually similar pairs |
+| **F1 Score** | 90.82% | Balanced precision-recall trade-off |
+| **ROC-AUC** | 97.01% | Strong ranking ability across thresholds |
+| **PR-AUC** | 97.27% | High precision-recall curve area |
+| **Expected Calibration Error** | 2.19% | Probabilities closely match actual rates |
 | **Brier Score** | 0.063 | Low probabilistic prediction error |
 
 The calibration error indicates that predicted probabilities approximate the true likelihood of similarity.
@@ -124,7 +124,7 @@ The PyTorch neural network was compared against multiple baselines including ran
 
 | Model | Accuracy | F1 Score | ROC-AUC |
 |-------|----------|----------|---------|
-| **PyTorch NN (Residual MLP)** | **91.73%** | **91.53%** | **97.20%** |
+| **PyTorch NN (Residual MLP)** | **91.20%** | **90.82%** | **97.01%** |
 | **Logistic Regression** | 90.93% | 90.63% | 96.74% |
 | **scikit-learn MLP** | 87.58% | 87.17% | 94.53% |
 | **Cosine Similarity (heuristic)** | 84.27% | 83.53% | 91.70% |

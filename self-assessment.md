@@ -181,15 +181,15 @@
   3. Logistic Regression: 96.7% ROC-AUC
   4. Cosine Similarity Heuristic: 91.7% ROC-AUC
   5. MLP Classifier: 94.5% ROC-AUC
-  6. PyTorch Neural Net: 97.2% ROC-AUC (final model)
-- PyTorch model demonstrates 2.7% improvement over MLP baseline
+  6. PyTorch Neural Net: 97.0% ROC-AUC (final model)
+- PyTorch model demonstrates 2.5% improvement over MLP baseline
 
 **Files:**
 - `results/metrics/baseline_comparison.json` - Quantitative comparison results with all 6 model metrics
 - `results/plots/baseline/baseline_comparison.png` - Visual bar chart comparing all models
 - `scripts/plots/plot_baseline_comparison.py` - Comparison implementation and visualization
 - `results/metrics/mlp_metrics.json` - MLP baseline: 94.5% ROC-AUC
-- `results/metrics/pytorch_metrics.json` - PyTorch final: 97.2% ROC-AUC
+- `results/metrics/pytorch_metrics.json` - PyTorch final: 97.0% ROC-AUC
 - `README.md` (Model Comparison section) - Baseline comparison table with all metrics
 
 ---
@@ -223,7 +223,7 @@
 - **Text Extraction:** Handles inconsistent patent formats across 5 years (2021-2025)
 - **Normalization:** StandardScaler for feature standardization (fit on train, transform on val/test)
 - **Filtering:** Removes empty or malformed patents during embedding generation
-- **Impact:** Enables training on clean, balanced dataset with 91.73% accuracy
+- **Impact:** Enables training on clean, balanced dataset with 91.20% accuracy
 
 **Files:**
 - `scripts/data/preprocessing/generate_embeddings.py` (lines 32-56) - Text extraction with missing data fallbacks
@@ -257,11 +257,11 @@
 
 **Evidence:**
 - Seven evaluation metrics used to assess model performance:
-  1. **Accuracy** - Overall correctness (91.73% on test set)
-  2. **Precision** - Positive prediction reliability (92.94%)
-  3. **Recall** - True positive detection rate (90.17%)
-  4. **F1 Score** - Harmonic mean of precision/recall (91.54%)
-  5. **ROC-AUC** - Ranking quality (97.17%)
+  1. **Accuracy** - Overall correctness (91.20% on test set)
+  2. **Precision** - Positive prediction reliability (93.98%)
+  3. **Recall** - True positive detection rate (87.87%)
+  4. **F1 Score** - Harmonic mean of precision/recall (90.82%)
+  5. **ROC-AUC** - Ranking quality (97.01%)
   6. **Recall@K** - Retrieval effectiveness (R@10: 99.9%)
   7. **MRR (Mean Reciprocal Rank)** - Average rank of first relevant result (0.9996)
 - Metrics appropriate for binary classification and information retrieval tasks

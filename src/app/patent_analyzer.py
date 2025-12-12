@@ -453,30 +453,20 @@ class PatentAnalyzer:
                     for rank, patent in enumerate(scored_patents, 1):
                         patent['rank'] = rank
                     
-                    # Calculate rank distribution metrics
+                    # Calculate mean similarity across top-K scored patents
                     model_similarities = [p.get('model_similarity', 1.0) for p in scored_patents]
                     mean_similarity = float(np.mean(model_similarities))
                     mean_novelty = 1 - mean_similarity
                     
-                    # Calculate percentile rank (how novel compared to top-K)
-                    # Lower similarity = higher novelty
-                    # Percentile represents: what % of patents are LESS similar (more novel) than this one
-                    # So if percentile = 100%, it means this is the LEAST novel (most similar)
-                    # We want to show it as "bottom 100%" or invert to show "top 0%"
-                    query_similarity = model_similarities[0] if model_similarities else 1.0
-                    # Count how many patents are MORE novel (less similar) than this one
-                    more_novel_count = np.sum(np.array(model_similarities) < query_similarity)
-                    # Percentile: what % are less similar (more novel)
-                    percentile = (more_novel_count / len(model_similarities)) * 100 if model_similarities else 0.0
-                    
-                    # Novelty score from rank distribution
+                    # Novelty score: inverse of mean similarity to top-K candidates
+                    # Higher score = more novel (less similar to existing patents)
                     novelty_score = mean_novelty
                     
                     search_metadata['top_k_scored'] = len(scored_patents)
-                    search_metadata['rank_percentile'] = float(percentile)
                     search_metadata['mean_similarity'] = float(mean_similarity)
+                    search_metadata['best_match_similarity'] = float(model_similarities[0]) if model_similarities else None
                     
-                    print(f"Ranking-based assessment: scored {len(scored_patents)} patents, mean similarity={mean_similarity:.3f}, novelty={mean_novelty:.3f}, percentile={percentile:.1f}%")
+                    print(f"Ranking-based assessment: scored {len(scored_patents)} patents, mean similarity={mean_similarity:.3f}, novelty={mean_novelty:.3f}")
                     
                     # Update all_similar with scored patents (in rank order) + unscored patents
                     all_similar = scored_patents + all_similar[top_k:]

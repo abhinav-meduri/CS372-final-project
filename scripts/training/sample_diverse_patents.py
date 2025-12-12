@@ -45,16 +45,12 @@ def sample_patents_from_file(
     sample_size: int,
     random_seed: int
 ) -> list:
-    """
-    Randomly sample patents from a JSONL file.
-    
-    Returns list of patent dicts.
-    """
-    # First, get all patent IDs with their line numbers
+    """Randomly sample patents from a JSONL file."""
+    # Index all patent IDs with line numbers
     print(f"  Indexing {filepath.name}...")
     all_ids = load_all_patent_ids(filepath)
     
-    # Random sample
+    # Randomly select line indices to sample
     random.seed(random_seed)
     if len(all_ids) <= sample_size:
         sampled_indices = set(range(len(all_ids)))
@@ -64,7 +60,7 @@ def sample_patents_from_file(
         sampled_indices = {item[1] for item in sampled_items}
         actual_sample_size = sample_size
     
-    # Read only the sampled lines
+    # Read only sampled lines (memory efficient)
     print(f"  Sampling {actual_sample_size} patents...")
     sampled_patents = []
     with open(filepath, 'r') as f:
@@ -115,11 +111,11 @@ def create_diverse_sample(
     total_available = sum(year_counts.values())
     print(f"\nTotal available: {total_available:,} patents")
     
-    # Calculate samples per year (equal distribution)
+    # Stratified sampling: equal patents per year
     num_years = len(year_files)
     base_per_year = total_patents // num_years
     
-    # Adjust if some years have fewer patents
+    # Allocate samples per year (respecting availability)
     samples_per_year = {}
     remaining = total_patents
     
@@ -129,7 +125,7 @@ def create_diverse_sample(
         samples_per_year[year] = target
         remaining -= target
     
-    # Distribute any remaining quota to years with capacity
+    # Distribute remaining quota to years with capacity
     for year in sorted(year_counts.keys()):
         if remaining <= 0:
             break
@@ -161,7 +157,7 @@ def create_diverse_sample(
         all_sampled.extend(sampled)
         print(f"  [OK] Sampled {len(sampled):,} patents")
     
-    # Shuffle the combined sample
+    # Shuffle combined sample for randomness
     random.seed(random_seed)
     random.shuffle(all_sampled)
     

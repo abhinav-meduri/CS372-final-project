@@ -8,6 +8,7 @@ from collections import defaultdict
 import random
 
 def load_our_patent_ids(sampled_path: str = 'data/sampled/patents_sampled.jsonl') -> set:
+    """Load patent IDs from sampled dataset."""
     patent_ids = set()
     with open(sampled_path, 'r') as f:
         for line in tqdm(f, desc="Loading patent IDs"):
@@ -22,6 +23,7 @@ def extract_citation_pairs(
     our_patent_ids: set = None,
     output_path: str = 'data/citations/filtered_citations.jsonl'
 ) -> list:
+    """Extract citation pairs where both patents are in our dataset."""
     print(f"Extracting citations from {citation_path}...")
     
     pairs = []
@@ -37,6 +39,7 @@ def extract_citation_pairs(
             citing_id = row['patent_id'].strip('"')
             cited_id = row['citation_patent_id'].strip('"')
             
+            # Keep only citations between patents in our dataset
             if citing_id in our_patent_ids and cited_id in our_patent_ids:
                 pairs.append({
                     'citing_patent_id': citing_id,
@@ -64,11 +67,13 @@ def create_training_pairs_from_citations(
     n_negative_per_positive: int = 1,
     random_seed: int = 42
 ):
+    """Create positive (citation) and negative (random) training pairs."""
     random.seed(random_seed)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Creating training pairs from {len(citation_pairs)} citations...")
     
+    # Create positive pairs from citations (label=1)
     positive_pairs = []
     seen = set()
     
@@ -87,6 +92,7 @@ def create_training_pairs_from_citations(
     
     print(f"Positive pairs: {len(positive_pairs)}")
     
+    # Generate random negative pairs (label=0)
     n_negatives = len(positive_pairs) * n_negative_per_positive
     print(f"Generating {n_negatives} negative pairs...")
     
@@ -113,6 +119,7 @@ def create_training_pairs_from_citations(
     
     print(f"Negative pairs: {len(negative_pairs)}")
     
+    # Shuffle and split into train/val/test
     all_pairs = positive_pairs + negative_pairs
     random.shuffle(all_pairs)
     

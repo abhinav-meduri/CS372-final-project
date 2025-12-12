@@ -48,7 +48,7 @@
 - Deployment with error handling and user feedback
 
 **Files:**
-- `app.py` (798 lines) - Complete Streamlit application
+- `app.py` (804 lines) - Complete Streamlit application
 - `SETUP.md` - Deployment and setup instructions
 - `README.md` - Usage guide and quick start
 
@@ -65,8 +65,8 @@
 
 **Files:**
 - `src/app/patent_analyzer.py` (lines 294-500) - Multi-stage pipeline orchestration connecting all 4 stages
-- `src/embeddings/patent_sberta.py` (292 lines) - Stage 1: PatentSBERTa transformer embeddings
-- `src/features/feature_extract.py` (160 lines) - Stage 2: Feature engineering from embeddings
+- `src/embeddings/patent_sberta.py` (291 lines) - Stage 1: PatentSBERTa transformer embeddings
+- `src/features/feature_extract.py` (386 lines) - Stage 2: Feature engineering from embeddings
 - `src/app/pytorch_classifier.py` (523 lines) - Stage 3: PyTorch neural network classification
 - `src/app/phi3_explainer.py` (318 lines) - Stage 4: Conditional text generation based on scores
 - `scripts/data/preprocessing/generate_embeddings.py` - Batch processing for Stage 1 (200K patents)
@@ -85,7 +85,7 @@
 
 **Files:**
 - `src/app/patent_analyzer.py` (lines 320-407) - LLM keyword extraction output triggers SerpAPI tool calls
-- `data/api/online_search.py` (239 lines) - Automated Google Patents API integration
+- `data/api/online_search.py` (700 lines) - Automated Google Patents API integration
 - `src/app/phi3_explainer.py` (lines 76-157) - Score-based prompt adaptation and tool usage decisions
 - `app.py` (lines 420-443) - Score-based recommendation logic (novelty thresholds)
 - `notebooks/pipeline.ipynb` - Demonstrates agentic behavior with SerpAPI tool calls triggered by LLM
@@ -119,7 +119,7 @@
 - Best configuration selected based on mean CV ROC-AUC score
 
 **Files:**
-- `scripts/evaluation/tuning/nn_tuning.py` (423 lines) - Hyperparameter tuning script with 3-fold CV
+- `scripts/evaluation/tuning/nn_tuning.py` (422 lines) - Hyperparameter tuning script with 3-fold CV
 - `results/hyperparameter_tuning/pytorch_tuning.json` - All 54 configurations with CV scores and statistics
 - `src/app/pytorch_classifier.py` - Final model using best hyperparameters: hidden_dims=[256, 128], dropout=0.3, lr=0.0005
 - `notebooks/pytorch_classifier.ipynb` - Training notebook showing hyperparameter selection process

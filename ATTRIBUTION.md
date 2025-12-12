@@ -123,7 +123,7 @@ The overall system architecture, hybrid retrieval design, feature engineering st
 **Notebooks:**
 - `notebooks/pipeline.ipynb`, `notebooks/pytorch_classifier.ipynb` - Configuration issues, cell organization, formatting
 
-**Key Learning:** Through this project, I learned that patent data processing is extremely challenging due to inconsistent formats across years, missing fields, and varying document structures. AI assistance was invaluable for iterating through edge cases and implementing robust fallback strategies. All strategic decisions (architecture, features, metrics, model design) were my own
+**Key Learning:** Through this project, I learned that patent data processing is extremely challenging due to inconsistent formats across years, missing fields, and varying document structures. AI assistance was invaluable for iterating through edge cases and implementing robust fallback strategies. All strategic decisions (architecture, features, metrics, model design) were my own.
 
 ---
 
